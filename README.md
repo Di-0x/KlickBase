@@ -1,5 +1,10 @@
 # 🧩 KlickBase
 
+[![Docker Image](https://ghcr.io/di-0x/klickbase/badge)](https://ghcr.io/di-0x/klickbase)
+[![Build & Publish](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml)
+![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 **KlickBase** is a self-hosted web application to manage your personal Playmobil collection. Browse, filter, and track every set you own — from a phone or a desktop browser.
 
 > **Home-made project** · No account required · No external service dependency · Your data stays on your machine
@@ -59,22 +64,53 @@
 
 ## Deployment
 
-### 1. Clone the repository
+### Option A — Pre-built image from GHCR *(recommended)*
+
+No need to clone the repository. Create a `docker-compose.yml` file anywhere on your server:
+
+```bash
+mkdir klickbase && cd klickbase
+curl -fsSL https://raw.githubusercontent.com/di-0x/klickbase/main/docker-compose.yml -o docker-compose.yml
+docker compose up -d
+```
+
+Or create the file manually:
+
+```yaml
+# docker-compose.yml
+services:
+  klickbase:
+    image: ghcr.io/di-0x/klickbase:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    environment:
+      - DATA_DIR=/data
+    read_only: true
+    tmpfs:
+      - /tmp
+```
+
+```bash
+docker compose up -d
+```
+
+The app is available at **http://localhost:8000**.
+
+> **Architectures supported:** `linux/amd64` (standard PC/server) and `linux/arm64` (Raspberry Pi 4/5, Apple Silicon).
+
+### Option B — Build from source
 
 ```bash
 git clone https://github.com/di-0x/klickbase.git
 cd klickbase
-```
-
-### 2. Build and start
-
-```bash
+# Edit docker-compose.yml: replace `image:` with `build: .`
 docker compose up --build -d
 ```
 
-The app is now available at **http://localhost:8000**.
-
-### 3. Access from another device on your network
+### Access from another device on your network
 
 Replace `localhost` with the IP address of the host machine:
 
@@ -82,11 +118,31 @@ Replace `localhost` with the IP address of the host machine:
 http://192.168.x.x:8000
 ```
 
-### 4. Stop
+### Stop
 
 ```bash
 docker compose down
 ```
+
+---
+
+## Updating
+
+### Pre-built image
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+### Built from source
+
+```bash
+git pull
+docker compose up --build -d
+```
+
+The database schema is backward-compatible — your data is preserved on update.
 
 ---
 
@@ -100,7 +156,7 @@ data/
 └── photos/           # Uploaded photos
 ```
 
-This directory is mounted as a Docker volume and **survives container restarts and rebuilds**.
+This directory is mounted as a Docker volume and **survives container restarts and image updates**.
 
 ### Backup
 
@@ -120,13 +176,6 @@ docker compose up -d
 
 ## Configuration
 
-The only configurable variable is the data directory path, set via environment variable in `docker-compose.yml`:
-
-```yaml
-environment:
-  - DATA_DIR=/data
-```
-
 To change the host port (default `8000`):
 
 ```yaml
@@ -134,16 +183,25 @@ ports:
   - "9000:8000"   # change 9000 to any available port
 ```
 
----
+To pin a specific version instead of `latest`:
 
-## Updating
-
-```bash
-git pull
-docker compose up --build -d
+```yaml
+image: ghcr.io/di-0x/klickbase:1.0.0
 ```
 
-The database schema is backward-compatible — your data is preserved on update.
+Available tags are listed on the [packages page](https://github.com/di-0x/klickbase/pkgs/container/klickbase).
+
+---
+
+## CI/CD
+
+Every push to `main` and every version tag (`v*.*.*`) automatically triggers a GitHub Actions workflow that:
+
+1. Builds a multi-arch image (`amd64` + `arm64`)
+2. Pushes it to `ghcr.io/di-0x/klickbase`
+3. Tags it as `latest` (main branch) or `x.y.z` (version tag)
+
+Layer caching is enabled — subsequent builds are fast.
 
 ---
 
@@ -151,19 +209,22 @@ The database schema is backward-compatible — your data is preserved on update.
 
 ```
 klickbase/
+├── .github/
+│   └── workflows/
+│       └── docker-publish.yml   # Build & push to GHCR
 ├── app/
-│   ├── main.py              # FastAPI app entry point
-│   ├── database.py          # SQLite setup and context manager
-│   ├── scraper.py           # playmobil.fr scraping logic
+│   ├── main.py                  # FastAPI app entry point
+│   ├── database.py              # SQLite setup and context manager
+│   ├── scraper.py               # playmobil.fr scraping logic
 │   ├── routes/
-│   │   ├── sets.py          # CRUD routes for sets
-│   │   └── photos.py        # Photo upload/management routes
+│   │   ├── sets.py              # CRUD routes for sets
+│   │   └── photos.py            # Photo upload/management routes
 │   └── templates/
 │       ├── base.html
-│       ├── index.html       # Main listing page
-│       ├── set_detail.html  # Set detail sheet
-│       ├── set_form.html    # Create / edit form
-│       └── partials/        # HTMX partial templates
+│       ├── index.html           # Main listing page
+│       ├── set_detail.html      # Set detail sheet
+│       ├── set_form.html        # Create / edit form
+│       └── partials/            # HTMX partial templates
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt
