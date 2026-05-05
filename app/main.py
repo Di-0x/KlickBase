@@ -23,6 +23,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="KlickBase", lifespan=lifespan)
 
+# Ensure dirs exist before StaticFiles checks them (volume may be empty on first start)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+
 app.mount("/photos", StaticFiles(directory=str(PHOTOS_DIR)), name="photos")
 
 app.include_router(sets.router)
