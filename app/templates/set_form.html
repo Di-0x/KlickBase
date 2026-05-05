@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if set else 'Ajouter' }} un set — KlickBase{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Breadcrumb -->
+  <div class="flex items-center gap-2 text-sm text-gray-400 mb-6">
+    {% if set %}
+      <a href="/sets/{{ set.id }}" class="hover:text-blue-600 transition">← #{{ set.set_number }}</a>
+      <span>/</span>
+      <span class="text-gray-600">Modifier</span>
+    {% else %}
+      <a href="/" class="hover:text-blue-600 transition">← Ma collection</a>
+      <span>/</span>
+      <span class="text-gray-600">Nouveau set</span>
+    {% endif %}
+  </div>
+
+  <h1 class="text-2xl font-bold text-gray-800 mb-6">
+    {{ 'Modifier le set' if set else 'Ajouter un set' }}
+  </h1>
+
+  <form method="POST"
+        action="{{ '/sets/' ~ set.id ~ '/edit' if set else '/sets/new' }}"
+        x-data="{
+          missingPieces: {{ 'true' if set and set.missing_pieces else 'false' }},
+          tagsInput: '{{ set.tags_list | join(',') if set and set.tags_list else '' }}',
+          addTag(tag) {
+            const tags = this.tagsInput.split(',').map(t => t.trim()).filter(t => t);
+            if (!tags.includes(tag)) { tags.push(tag); }
+            this.tagsInput = tags.join(', ');
+          }
+        }"
+        class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+
+    <!-- Set number + Name -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">N° de set <span class="text-red-500">*</span></label>
+        <input type="text" name="set_number" required
+               value="{{ set.set_number if set else '' }}"
+               placeholder="ex: 70819"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nom <span class="text-red-500">*</span></label>
+        <input type="text" name="name" required
+               value="{{ set.name if set else '' }}"
+               placeholder="ex: Grand manège"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+    </div>
+
+    <!-- Collection + Year -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Collection officielle</label>
+        <select name="collection"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">— Non renseigné —</option>
+          {% for c in COLLECTIONS %}
+          <option value="{{ c }}" {{ 'selected' if set and set.collection == c }}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Année de sortie</label>
+        <input type="number" name="year" min="1974" max="2030"
+               value="{{ set.year if set and set.year else '' }}"
+               placeholder="ex: 2022"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+    </div>
+
+    <!-- Pieces + Prices -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre de pièces</label>
+        <input type="number" name="num_pieces" min="1"
+               value="{{ set.num_pieces if set and set.num_pieces else '' }}"
+               placeholder="ex: 120"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Prix payé (€)</label>
+        <input type="number" name="price_paid" min="0" step="0.01"
+               value="{{ '%.2f'|format(set.price_paid) if set and set.price_paid else '' }}"
+               placeholder="ex: 29.99"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Date d'achat</label>
+        <input type="date" name="purchase_date"
+               value="{{ set.purchase_date if set and set.purchase_date else '' }}"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+    </div>
+
+    <!-- Box condition -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-2">État de la boîte</label>
+      <div class="flex gap-2 flex-wrap">
+        {% for bc in BOX_CONDITIONS %}
+        <label class="cursor-pointer">
+          <input type="radio" name="box_condition" value="{{ bc }}" class="sr-only peer"
+                 {{ 'checked' if (set and set.box_condition == bc) or (not set and bc == 'Bon état') }}>
+          <span class="inline-block px-3 py-1.5 rounded-lg border border-gray-200 text-sm
+                       peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-700
+                       hover:border-gray-300 transition">
+            {{ bc }}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Manual + Missing pieces -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
+        <input type="checkbox" name="manual_present" id="manual_present" value="1"
+               {{ 'checked' if set and set.manual_present }}
+               class="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-400">
+        <label for="manual_present" class="text-sm font-medium text-gray-700 cursor-pointer">
+          📄 Notice présente
+        </label>
+      </div>
+      <div class="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
+        <input type="checkbox" name="missing_pieces" id="missing_pieces" value="1"
+               x-model="missingPieces"
+               {{ 'checked' if set and set.missing_pieces }}
+               class="w-4 h-4 rounded text-amber-500 border-gray-300 focus:ring-amber-400">
+        <label for="missing_pieces" class="text-sm font-medium text-gray-700 cursor-pointer">
+          ⚠️ Pièces manquantes
+        </label>
+      </div>
+    </div>
+
+    <!-- Missing pieces description -->
+    <div x-show="missingPieces" x-cloak>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Détail des pièces manquantes</label>
+      <textarea name="missing_pieces_desc" rows="2"
+                placeholder="Décrire les pièces manquantes…"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">{{ set.missing_pieces_desc if set and set.missing_pieces_desc else '' }}</textarea>
+    </div>
+
+    <!-- Tags -->
+    <div x-data="{}">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Tags personnalisés</label>
+      <input type="text" name="tags" x-model="tagsInput"
+             placeholder="ex: Préféré, Anniversaire, À vendre"
+             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+      <p class="text-xs text-gray-400 mt-1">Séparés par des virgules</p>
+      {% if all_tags %}
+      <div class="flex gap-1.5 flex-wrap mt-2">
+        {% for t in all_tags %}
+        <button type="button" @click="addTag('{{ t }}')"
+                class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full hover:bg-blue-50 hover:text-blue-700 transition">
+          + {{ t }}
+        </button>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Notes -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+      <textarea name="notes" rows="3"
+                placeholder="Infos complémentaires, provenance, état détaillé…"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">{{ set.notes if set and set.notes else '' }}</textarea>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-3 pt-2">
+      <button type="submit"
+              class="flex-1 bg-blue-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-blue-700 transition">
+        {{ 'Enregistrer les modifications' if set else 'Ajouter le set' }}
+      </button>
+      <a href="{{ '/sets/' ~ set.id if set else '/' }}"
+         class="px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition">
+        Annuler
+      </a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}KlickBase{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { brand: '#2563eb' }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+  <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request.htmx-indicator { display: inline-block; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800">
+
+  <!-- Header -->
+  <header class="bg-blue-600 text-white shadow-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <a href="/" class="flex items-center gap-2 text-xl font-bold tracking-tight shrink-0">
+        <span class="text-2xl">🧩</span>
+        <span>KlickBase</span>
+      </a>
+      <a href="/sets/new"
+         class="bg-white text-blue-600 px-4 py-1.5 rounded-lg font-semibold text-sm hover:bg-blue-50 transition shrink-0">
+        + Ajouter un set
+      </a>
+    </div>
+  </header>
+
+  <!-- Toast / flash -->
+  {% if scrape_message is defined %}
+  <div x-data="{ show: true }" x-show="show" x-cloak
+       class="fixed top-16 right-4 z-50 max-w-sm px-4 py-3 rounded-lg shadow-lg text-sm font-medium
+              {{ 'bg-emerald-100 text-emerald-800 border border-emerald-300' if scrape_ok else 'bg-amber-100 text-amber-800 border border-amber-300' }}"
+       x-init="setTimeout(() => show = false, 4000)">
+    {{ scrape_message }}
+  </div>
+  {% endif %}
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>

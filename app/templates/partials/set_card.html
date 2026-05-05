@@ -1,0 +1,54 @@
+<a href="/sets/{{ s.id }}"
+   class="group block bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition overflow-hidden">
+
+  <!-- Photo -->
+  <div class="aspect-video bg-gray-100 flex items-center justify-center overflow-hidden relative">
+    {% set photo_src = '/photos/' ~ (s.primary_photo or s.first_photo) if (s.primary_photo or s.first_photo) else s.official_photo_url %}
+    {% if photo_src %}
+      <img src="{{ photo_src }}" alt="{{ s.name }}"
+           class="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+      <div style="display:none" class="absolute inset-0 flex items-center justify-center text-4xl">🧩</div>
+    {% else %}
+      <span class="text-4xl">🧩</span>
+    {% endif %}
+
+    {% if s.missing_pieces %}
+      <span class="absolute top-2 right-2 bg-amber-400 text-amber-900 text-xs font-bold px-1.5 py-0.5 rounded">
+        ⚠ Pièces
+      </span>
+    {% endif %}
+  </div>
+
+  <!-- Info -->
+  <div class="p-3">
+    <div class="flex items-start justify-between gap-1 mb-1">
+      <div class="min-w-0">
+        <span class="block text-xs font-mono text-gray-400">#{{ s.set_number }}</span>
+        <h3 class="font-semibold text-gray-800 leading-tight truncate text-sm">{{ s.name }}</h3>
+      </div>
+    </div>
+
+    {% if s.collection %}
+      <p class="text-xs text-gray-500 mb-2">{{ s.collection }}</p>
+    {% endif %}
+
+    <div class="flex items-center justify-between gap-2 flex-wrap">
+      <span class="text-sm font-bold text-blue-600">
+        {% if s.price_paid %}{{ "%.2f"|format(s.price_paid) }} €{% else %}<span class="text-gray-300">—</span>{% endif %}
+      </span>
+      <span class="text-xs px-2 py-0.5 rounded-full {{ s.box_condition | condition_class }}">
+        {{ s.box_condition or '?' }}
+      </span>
+    </div>
+
+    <div class="mt-2 flex gap-2 flex-wrap">
+      {% if s.manual_present %}
+        <span class="text-xs text-gray-400">📄 Notice</span>
+      {% endif %}
+      {% if s.num_pieces %}
+        <span class="text-xs text-gray-400">🔩 {{ s.num_pieces }} pcs</span>
+      {% endif %}
+    </div>
+  </div>
+</a>

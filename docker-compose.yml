@@ -1,0 +1,15 @@
+services:
+  klickbase:
+    image: ghcr.io/di-0x/klickbase:latest
+    # Pour builder localement depuis les sources, remplacez la ligne ci-dessus par :
+    # build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    environment:
+      - DATA_DIR=/data
+    read_only: true
+    tmpfs:
+      - /tmp

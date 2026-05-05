@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}KlickBase — Ma collection{% endblock %}
+
+{% block content %}
+<div x-data="{
+  view: localStorage.getItem('kb_view') || 'grid',
+  filtersOpen: false,
+  setView(v) {
+    this.view = v;
+    localStorage.setItem('kb_view', v);
+    document.getElementById('view-input').value = v;
+    htmx.trigger('#filter-form', 'submit');
+  }
+}">
+
+  <!-- Page header -->
+  <div class="flex items-center justify-between mb-4 gap-3">
+    <h1 class="text-2xl font-bold text-gray-800">Ma collection
+      <span id="count-badge" class="ml-2 text-base font-normal text-gray-400">({{ total }} set{{ 's' if total != 1 else '' }})</span>
+    </h1>
+    <div class="flex items-center gap-2">
+      <!-- View toggle -->
+      <div class="flex rounded-lg border border-gray-200 overflow-hidden bg-white">
+        <button @click="setView('grid')"
+                :class="view === 'grid' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'"
+                class="px-3 py-1.5 text-sm transition" title="Vue grille">
+          ▦
+        </button>
+        <button @click="setView('list')"
+                :class="view === 'list' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'"
+                class="px-3 py-1.5 text-sm transition" title="Vue liste">
+          ☰
+        </button>
+      </div>
+      <!-- Filter toggle (mobile) -->
+      <button @click="filtersOpen = !filtersOpen"
+              class="md:hidden flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">
+        <span>Filtres</span>
+        <span x-text="filtersOpen ? '▲' : '▼'" class="text-xs"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="flex gap-5">
+
+    <!-- Filter sidebar -->
+    <aside :class="filtersOpen ? 'block' : 'hidden md:block'"
+           class="w-full md:w-64 shrink-0">
+      <form id="filter-form"
+            hx-get="/sets"
+            hx-target="#set-list"
+            hx-trigger="submit, change delay:400ms, input[name=q] delay:500ms"
+            hx-indicator="#spinner"
+            class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4 sticky top-20">
+
+        <input type="hidden" id="view-input" name="view" :value="view">
+
+        <!-- Search -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Recherche</label>
+          <input type="search" name="q" placeholder="Nom ou numéro…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+
+        <!-- Collection -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Collection</label>
+          <select name="collection"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">Toutes</option>
+            {% for c in collections %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Sort -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Trier par</label>
+          <div class="flex gap-2">
+            <select name="sort"
+                    class="flex-1 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              <option value="set_number">N° set</option>
+              <option value="name">Nom</option>
+              <option value="price_paid">Prix payé</option>
+              <option value="purchase_date">Date achat</option>
+              <option value="collection">Collection</option>
+              <option value="created_at">Ajouté le</option>
+            </select>
+            <select name="order"
+                    class="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              <option value="asc">↑</option>
+              <option value="desc">↓</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Box condition -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">État boîte</label>
+          <select name="box_condition"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">Tous</option>
+            {% for bc in BOX_CONDITIONS %}
+            <option value="{{ bc }}">{{ bc }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Missing pieces -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Pièces manquantes</label>
+          <select name="missing_pieces"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">Tous</option>
+            <option value="1">Oui</option>
+            <option value="0">Non</option>
+          </select>
+        </div>
+
+        <!-- Manual present -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notice présente</label>
+          <select name="manual_present"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">Tous</option>
+            <option value="1">Oui</option>
+            <option value="0">Non</option>
+          </select>
+        </div>
+
+        <!-- Price range -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Prix payé (€)</label>
+          <div class="flex items-center gap-2">
+            <input type="number" name="min_price" placeholder="Min" min="0" step="0.01"
+                   class="w-1/2 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <span class="text-gray-400 text-sm">–</span>
+            <input type="number" name="max_price" placeholder="Max" min="0" step="0.01"
+                   class="w-1/2 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          </div>
+        </div>
+
+        <!-- Tags -->
+        {% if all_tags %}
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Tag</label>
+          <select name="tag"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="">Tous</option>
+            {% for t in all_tags %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <button type="submit"
+                class="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2">
+          <span>Appliquer</span>
+          <span id="spinner" class="htmx-indicator text-xs animate-spin">⟳</span>
+        </button>
+
+        <a href="/"
+           class="block text-center text-xs text-gray-400 hover:text-gray-600 transition">
+          Réinitialiser les filtres
+        </a>
+      </form>
+    </aside>
+
+    <!-- Main list area -->
+    <div class="flex-1 min-w-0">
+      <div id="set-list">
+        {% include "partials/set_list.html" %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
