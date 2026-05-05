@@ -1,0 +1,49 @@
+<a href="/sets/{{ s.id }}"
+   class="flex items-center gap-3 bg-white rounded-lg border border-gray-100 px-3 py-2.5 hover:shadow-sm hover:border-blue-200 transition">
+
+  <!-- Thumbnail -->
+  <div class="w-14 h-14 shrink-0 rounded-md bg-gray-100 overflow-hidden flex items-center justify-center">
+    {% set photo_src = '/photos/' ~ (s.primary_photo or s.first_photo) if (s.primary_photo or s.first_photo) else s.official_photo_url %}
+    {% if photo_src %}
+      <img src="{{ photo_src }}" alt="{{ s.name }}"
+           class="w-full h-full object-cover"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+      <div style="display:none" class="w-full h-full flex items-center justify-center text-2xl">🧩</div>
+    {% else %}
+      <span class="text-2xl">🧩</span>
+    {% endif %}
+  </div>
+
+  <!-- Main info -->
+  <div class="flex-1 min-w-0">
+    <div class="flex items-baseline gap-2">
+      <span class="text-xs font-mono text-gray-400 shrink-0">#{{ s.set_number }}</span>
+      <span class="font-semibold text-gray-800 truncate text-sm">{{ s.name }}</span>
+    </div>
+    <div class="flex items-center gap-3 mt-0.5 flex-wrap">
+      {% if s.collection %}
+        <span class="text-xs text-gray-400">{{ s.collection }}</span>
+      {% endif %}
+      {% if s.num_pieces %}
+        <span class="text-xs text-gray-400">🔩 {{ s.num_pieces }} pcs</span>
+      {% endif %}
+      {% if s.purchase_date %}
+        <span class="text-xs text-gray-400">📅 {{ s.purchase_date }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right side -->
+  <div class="flex flex-col items-end gap-1 shrink-0">
+    <span class="font-bold text-blue-600 text-sm">
+      {% if s.price_paid %}{{ "%.2f"|format(s.price_paid) }} €{% else %}<span class="text-gray-300">—</span>{% endif %}
+    </span>
+    <span class="text-xs px-2 py-0.5 rounded-full {{ s.box_condition | condition_class }}">
+      {{ s.box_condition or '?' }}
+    </span>
+    {% if s.missing_pieces %}
+      <span class="text-xs text-amber-500">⚠ Pièces</span>
+    {% endif %}
+  </div>
+
+</a>

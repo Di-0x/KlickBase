@@ -1,0 +1,13 @@
+services:
+  klickbase:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    environment:
+      - DATA_DIR=/data
+    read_only: true
+    tmpfs:
+      - /tmp

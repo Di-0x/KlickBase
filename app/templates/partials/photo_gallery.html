@@ -1,0 +1,73 @@
+<div id="photo-gallery">
+  {% if photos %}
+    <!-- Primary photo -->
+    {% set primary = photos | selectattr("is_primary", "equalto", 1) | list %}
+    {% set main_photo = primary[0] if primary else photos[0] %}
+    <div class="mb-3 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center" style="max-height: 320px;">
+      <img src="/photos/{{ main_photo.filename }}" alt="Photo principale"
+           class="object-contain w-full" style="max-height: 320px;">
+    </div>
+
+    <!-- Thumbnails -->
+    <div class="flex gap-2 flex-wrap">
+      {% for photo in photos %}
+      <div class="relative group w-20 h-20 rounded-lg overflow-hidden border-2
+                  {{ 'border-blue-500' if photo.is_primary else 'border-transparent hover:border-blue-300' }}">
+        <img src="/photos/{{ photo.filename }}" alt=""
+             class="w-full h-full object-cover">
+        <!-- Actions overlay -->
+        <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1">
+          {% if not photo.is_primary %}
+          <button hx-post="/sets/{{ set.id }}/photos/{{ photo.id }}/primary"
+                  hx-target="#photo-gallery"
+                  hx-swap="outerHTML"
+                  title="Définir comme principale"
+                  class="text-white text-xs bg-blue-600 rounded px-1.5 py-0.5 hover:bg-blue-700 transition">
+            ★ Principale
+          </button>
+          {% else %}
+          <span class="text-yellow-300 text-xs font-bold">★ Principale</span>
+          {% endif %}
+          <button hx-delete="/sets/{{ set.id }}/photos/{{ photo.id }}"
+                  hx-target="#photo-gallery"
+                  hx-swap="outerHTML"
+                  hx-confirm="Supprimer cette photo ?"
+                  title="Supprimer"
+                  class="text-white text-xs bg-red-600 rounded px-1.5 py-0.5 hover:bg-red-700 transition">
+            🗑 Supprimer
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% elif set.official_photo_url %}
+    <div class="mb-3 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center" style="max-height: 320px;">
+      <img src="{{ set.official_photo_url }}" alt="{{ set.name }}"
+           class="object-contain w-full" style="max-height: 320px;"
+           onerror="this.parentElement.innerHTML = '<span class=\'text-6xl\'>🧩</span>'">
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Photo officielle Playmobil</p>
+  {% else %}
+    <div class="flex items-center justify-center bg-gray-100 rounded-xl" style="height: 200px;">
+      <span class="text-6xl">🧩</span>
+    </div>
+  {% endif %}
+
+  <!-- Upload form -->
+  <form hx-post="/sets/{{ set.id }}/photos"
+        hx-target="#photo-gallery"
+        hx-swap="outerHTML"
+        hx-encoding="multipart/form-data"
+        class="mt-4 flex items-center gap-2">
+    <label class="flex-1 cursor-pointer">
+      <span class="sr-only">Choisir une photo</span>
+      <input type="file" name="file" accept="image/*" required
+             class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                    file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition">
+    </label>
+    <button type="submit"
+            class="shrink-0 bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700 transition">
+      Ajouter
+    </button>
+  </form>
+</div>
