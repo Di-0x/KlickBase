@@ -1,7 +1,7 @@
 # 🧩 KlickBase
 
-![Docker Image](https://ghcr.io/di-0x/klickbase/badge)](https://ghcr.io/di-0x/klickbase)
-![Build & Publish](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml)
+[![Docker Image](https://ghcr.io/di-0x/klickbase/badge)](https://ghcr.io/di-0x/klickbase)
+[![Build & Publish](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml)
 ![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
