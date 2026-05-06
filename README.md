@@ -1,7 +1,7 @@
 # 🧩 KlickBase
 
-[![Docker Image](https://ghcr.io/di-0x/klickbase/badge)](https://ghcr.io/di-0x/klickbase)
-[![Build & Publish](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml)
+![Docker Image](https://ghcr.io/di-0x/klickbase/badge)](https://ghcr.io/di-0x/klickbase)
+![Build & Publish](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/di-0x/klickbase/actions/workflows/docker-publish.yml)
 ![Platforms](https://img.shields.io/badge/platform-amd64%20%7C%20arm64-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -14,7 +14,7 @@
 ## Screenshots
 
 ### Main page
-[Main Page](https://raw.githubusercontent.com/Di-0x/KlickBase/refs/heads/main/Screenshot%202026-05-06%20at%2008-55-20%20KlickBase%20%E2%80%94%20Ma%20collection.png)
+![Main Page](https://raw.githubusercontent.com/Di-0x/KlickBase/refs/heads/main/Screenshot%202026-05-06%20at%2008-55-20%20KlickBase%20%E2%80%94%20Ma%20collection.png)
 
 ---
 
