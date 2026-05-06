@@ -13,9 +13,8 @@
 
 ## Screenshots
 
-| Listing (grid) | Set detail |
-|---|---|
-| *Grid view with filters* | *Detail sheet with photo gallery* |
+### Main page
+[Main Page](https://raw.githubusercontent.com/Di-0x/KlickBase/refs/heads/main/Screenshot%202026-05-06%20at%2008-55-20%20KlickBase%20%E2%80%94%20Ma%20collection.png)
 
 ---
 
