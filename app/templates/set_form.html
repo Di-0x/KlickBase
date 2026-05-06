@@ -73,13 +73,20 @@
       </div>
     </div>
 
-    <!-- Pieces + Prices -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <!-- Pieces + Figures + Prices -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de pièces</label>
         <input type="number" name="num_pieces" min="1"
                value="{{ set.num_pieces if set and set.num_pieces else '' }}"
                placeholder="ex: 120"
+               class="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de figurines</label>
+        <input type="number" name="num_figures" min="0"
+               value="{{ set.num_figures if set and set.num_figures else '' }}"
+               placeholder="ex: 3"
                class="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400">
       </div>
       <div>
@@ -96,6 +103,7 @@
                class="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400">
       </div>
     </div>
+
 
     <!-- Box condition -->
     <div>

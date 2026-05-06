@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS sets (
     name TEXT NOT NULL,
     collection TEXT,
     num_pieces INTEGER,
+    num_figures INTEGER,
     price_paid REAL,
     public_price REAL,
     purchase_date TEXT,
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS sets (
     notes TEXT,
     official_photo_url TEXT,
     playmobil_url TEXT,
+    klickypedia_url TEXT,
     year INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
@@ -47,11 +49,25 @@ CREATE TABLE IF NOT EXISTS set_tags (
 """
 
 
+_MIGRATIONS = [
+    ("num_figures", "ALTER TABLE sets ADD COLUMN num_figures INTEGER"),
+    ("klickypedia_url", "ALTER TABLE sets ADD COLUMN klickypedia_url TEXT"),
+]
+
+
+def _apply_migrations(conn):
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(sets)").fetchall()}
+    for col_name, sql in _MIGRATIONS:
+        if col_name not in existing:
+            conn.execute(sql)
+
+
 def init_db(db_path: Path):
     global DB_PATH
     DB_PATH = db_path
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        _apply_migrations(conn)
 
 
 @contextmanager
