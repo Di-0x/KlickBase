@@ -5,10 +5,10 @@
 <div x-data="{ confirmDelete: false }">
 
   <!-- Breadcrumb -->
-  <div class="flex items-center gap-2 text-sm text-gray-400 mb-4">
-    <a href="/" class="hover:text-blue-600 transition">← Ma collection</a>
+  <div class="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mb-4">
+    <a href="/" class="hover:text-blue-600 dark:hover:text-blue-400 transition">← Ma collection</a>
     <span>/</span>
-    <span class="text-gray-600">#{{ set.set_number }}</span>
+    <span class="text-gray-600 dark:text-gray-300">#{{ set.set_number }}</span>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -24,33 +24,30 @@
       <!-- Title & actions -->
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <span class="text-sm font-mono text-gray-400">#{{ set.set_number }}</span>
-          <h1 class="text-2xl font-bold text-gray-800 leading-tight">{{ set.name }}</h1>
+          <span class="text-sm font-mono text-gray-400 dark:text-gray-500">#{{ set.set_number }}</span>
+          <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight">{{ set.name }}</h1>
           {% if set.collection %}
-            <p class="text-blue-600 font-medium mt-0.5">{{ set.collection }}</p>
+            <p class="text-blue-600 dark:text-blue-400 font-medium mt-0.5">{{ set.collection }}</p>
           {% endif %}
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
           <!-- Scrape button -->
           <button hx-post="/sets/{{ set.id }}/scrape"
-                  hx-target="body"
-                  hx-swap="innerHTML"
+                  hx-target="body" hx-swap="innerHTML"
                   hx-indicator="#scrape-spinner"
-                  class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 transition">
+                  class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
             <span>🔍 Actualiser depuis Playmobil</span>
             <span id="scrape-spinner" class="htmx-indicator text-xs animate-spin">⟳</span>
           </button>
-
           <!-- Edit button -->
           <a href="/sets/{{ set.id }}/edit"
-             class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition">
+             class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 dark:bg-blue-700 text-white text-sm font-medium hover:bg-blue-700 dark:hover:bg-blue-600 transition">
             ✏️ Modifier
           </a>
-
           <!-- Delete button -->
           <button @click="confirmDelete = true"
-                  class="flex items-center gap-1 px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50 transition">
+                  class="flex items-center gap-1 px-3 py-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm hover:bg-red-50 dark:hover:bg-red-900/30 transition">
             🗑
           </button>
         </div>
@@ -59,16 +56,15 @@
       <!-- Delete confirmation modal -->
       <div x-show="confirmDelete" x-cloak
            class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-          <h2 class="text-lg font-bold text-gray-800 mb-2">Supprimer ce set ?</h2>
-          <p class="text-sm text-gray-500 mb-5">Cette action est irréversible. Toutes les photos seront supprimées.</p>
+        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 max-w-sm w-full border border-gray-100 dark:border-gray-800">
+          <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">Supprimer ce set ?</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Cette action est irréversible. Toutes les photos seront supprimées.</p>
           <div class="flex gap-3">
             <button @click="confirmDelete = false"
-                    class="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+                    class="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
               Annuler
             </button>
-            <button hx-delete="/sets/{{ set.id }}"
-                    hx-target="body"
+            <button hx-delete="/sets/{{ set.id }}" hx-target="body"
                     class="flex-1 bg-red-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-red-700 transition">
               Supprimer
             </button>
@@ -77,80 +73,77 @@
       </div>
 
       <!-- Info grid -->
-      <div class="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm divide-y divide-gray-50 dark:divide-gray-800">
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-0 divide-x divide-gray-50">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-0 divide-x divide-gray-50 dark:divide-gray-800">
           <div class="p-4">
-            <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Prix payé</p>
-            <p class="text-xl font-bold text-blue-600">
+            <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Prix payé</p>
+            <p class="text-xl font-bold text-blue-600 dark:text-blue-400">
               {% if set.price_paid %}{{ "%.2f"|format(set.price_paid) }} €{% else %}—{% endif %}
             </p>
           </div>
           <div class="p-4">
-            <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Prix public</p>
-            <p class="text-xl font-bold text-gray-600">
+            <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Prix public</p>
+            <p class="text-xl font-bold text-gray-600 dark:text-gray-300">
               {% if set.public_price %}{{ "%.2f"|format(set.public_price) }} €{% else %}—{% endif %}
             </p>
           </div>
           <div class="p-4 col-span-2 sm:col-span-1">
-            <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Pièces</p>
-            <p class="text-xl font-bold text-gray-600">
-              {{ set.num_pieces if set.num_pieces else '—' }}
-            </p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Pièces</p>
+            <p class="text-xl font-bold text-gray-600 dark:text-gray-300">{{ set.num_pieces if set.num_pieces else '—' }}</p>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-0 divide-x divide-gray-50">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-0 divide-x divide-gray-50 dark:divide-gray-800">
           <div class="p-4">
-            <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Année</p>
-            <p class="font-semibold text-gray-700">{{ set.year if set.year else '—' }}</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Année</p>
+            <p class="font-semibold text-gray-700 dark:text-gray-200">{{ set.year if set.year else '—' }}</p>
           </div>
           <div class="p-4">
-            <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Date d'achat</p>
-            <p class="font-semibold text-gray-700">{{ set.purchase_date if set.purchase_date else '—' }}</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Date d'achat</p>
+            <p class="font-semibold text-gray-700 dark:text-gray-200">{{ set.purchase_date if set.purchase_date else '—' }}</p>
           </div>
           <div class="p-4 col-span-2 sm:col-span-1">
-            <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">État boîte</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">État boîte</p>
             <span class="inline-block text-sm px-3 py-0.5 rounded-full font-medium {{ set.box_condition | condition_class }}">
               {{ set.box_condition or '—' }}
             </span>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-0 divide-x divide-gray-50">
+        <div class="grid grid-cols-2 gap-0 divide-x divide-gray-50 dark:divide-gray-800">
           <div class="p-4 flex items-center gap-3">
             <span class="text-2xl">{{ '✅' if set.manual_present else '❌' }}</span>
             <div>
-              <p class="text-xs text-gray-400 uppercase tracking-wide">Notice</p>
-              <p class="text-sm font-semibold text-gray-700">{{ 'Présente' if set.manual_present else 'Absente' }}</p>
+              <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Notice</p>
+              <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ 'Présente' if set.manual_present else 'Absente' }}</p>
             </div>
           </div>
           <div class="p-4 flex items-center gap-3">
             <span class="text-2xl">{{ '⚠️' if set.missing_pieces else '✅' }}</span>
             <div>
-              <p class="text-xs text-gray-400 uppercase tracking-wide">Pièces manquantes</p>
-              <p class="text-sm font-semibold text-gray-700">{{ 'Oui' if set.missing_pieces else 'Non' }}</p>
+              <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Pièces manquantes</p>
+              <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ 'Oui' if set.missing_pieces else 'Non' }}</p>
             </div>
           </div>
         </div>
 
         {% if set.missing_pieces and set.missing_pieces_desc %}
         <div class="p-4">
-          <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Détail pièces manquantes</p>
-          <p class="text-sm text-gray-700">{{ set.missing_pieces_desc }}</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Détail pièces manquantes</p>
+          <p class="text-sm text-gray-700 dark:text-gray-200">{{ set.missing_pieces_desc }}</p>
         </div>
         {% endif %}
-
       </div>
 
       <!-- Tags -->
       {% if set.tags_list %}
       <div>
-        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Tags</p>
+        <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Tags</p>
         <div class="flex gap-2 flex-wrap">
           {% for tag in set.tags_list %}
           <a href="/?tag={{ tag }}"
-             class="inline-block bg-blue-50 text-blue-700 text-xs font-medium px-3 py-1 rounded-full hover:bg-blue-100 transition">
+             class="inline-block bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-medium px-3 py-1 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/70 transition">
             {{ tag }}
           </a>
           {% endfor %}
@@ -160,9 +153,9 @@
 
       <!-- Notes -->
       {% if set.notes %}
-      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Notes</p>
-        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ set.notes }}</p>
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-4">
+        <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Notes</p>
+        <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ set.notes }}</p>
       </div>
       {% endif %}
 
@@ -170,15 +163,13 @@
       {% if set.playmobil_url %}
       <div>
         <a href="{{ set.playmobil_url }}" target="_blank" rel="noopener noreferrer"
-           class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline">
+           class="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline">
           🔗 Voir sur playmobil.fr
         </a>
       </div>
       {% endif %}
 
-      <!-- Meta -->
-      <p class="text-xs text-gray-300">Ajouté le {{ set.created_at[:10] if set.created_at else '' }}</p>
-
+      <p class="text-xs text-gray-300 dark:text-gray-600">Ajouté le {{ set.created_at[:10] if set.created_at else '' }}</p>
     </div>
   </div>
 </div>

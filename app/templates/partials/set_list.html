@@ -1,23 +1,19 @@
 <div id="set-list">
   {% if sets %}
-    <p class="text-xs text-gray-400 mb-3">{{ total }} set{{ 's' if total != 1 else '' }} trouvé{{ 's' if total != 1 else '' }}</p>
+    <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">{{ total }} set{{ 's' if total != 1 else '' }} trouvé{{ 's' if total != 1 else '' }}</p>
     {% if view == "list" %}
       <div class="space-y-2">
-        {% for s in sets %}
-          {% include "partials/set_row.html" %}
-        {% endfor %}
+        {% for s in sets %}{% include "partials/set_row.html" %}{% endfor %}
       </div>
     {% else %}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {% for s in sets %}
-          {% include "partials/set_card.html" %}
-        {% endfor %}
+        {% for s in sets %}{% include "partials/set_card.html" %}{% endfor %}
       </div>
     {% endif %}
   {% else %}
-    <div class="flex flex-col items-center justify-center py-20 text-gray-300">
+    <div class="flex flex-col items-center justify-center py-20 text-gray-300 dark:text-gray-600">
       <span class="text-6xl mb-4">🧩</span>
-      <p class="text-lg font-medium text-gray-400">Aucun set trouvé</p>
+      <p class="text-lg font-medium text-gray-400 dark:text-gray-500">Aucun set trouvé</p>
       <a href="/sets/new" class="mt-4 text-sm text-blue-500 hover:underline">+ Ajouter votre premier set</a>
     </div>
   {% endif %}
