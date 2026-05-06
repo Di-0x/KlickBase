@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..database import get_db
-from ..scraper import scrape_playmobil
+from ..scraper import scrape_klickypedia
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -184,6 +184,7 @@ async def create_set(
     name: str = Form(...),
     collection: Optional[str] = Form(None),
     num_pieces: Optional[str] = Form(None),
+    num_figures: Optional[str] = Form(None),
     price_paid: Optional[str] = Form(None),
     purchase_date: Optional[str] = Form(None),
     box_condition: str = Form("Bon état"),
@@ -202,13 +203,13 @@ async def create_set(
     with get_db() as db:
         cursor = db.execute(
             """INSERT INTO sets
-               (set_number, name, collection, num_pieces, price_paid,
+               (set_number, name, collection, num_pieces, num_figures, price_paid,
                 purchase_date, box_condition, manual_present, missing_pieces,
                 missing_pieces_desc, notes, year)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 set_number.strip(), name.strip(),
-                collection or None, _int(num_pieces), _float(price_paid),
+                collection or None, _int(num_pieces), _int(num_figures), _float(price_paid),
                 purchase_date or None, box_condition,
                 1 if manual_present else 0,
                 1 if missing_pieces else 0,
@@ -292,6 +293,7 @@ async def update_set(
     name: str = Form(...),
     collection: Optional[str] = Form(None),
     num_pieces: Optional[str] = Form(None),
+    num_figures: Optional[str] = Form(None),
     price_paid: Optional[str] = Form(None),
     purchase_date: Optional[str] = Form(None),
     box_condition: str = Form("Bon état"),
@@ -314,13 +316,13 @@ async def update_set(
 
         db.execute(
             """UPDATE sets SET
-               set_number=?, name=?, collection=?, num_pieces=?, price_paid=?,
+               set_number=?, name=?, collection=?, num_pieces=?, num_figures=?, price_paid=?,
                purchase_date=?, box_condition=?, manual_present=?, missing_pieces=?,
                missing_pieces_desc=?, notes=?, year=?, updated_at=datetime('now')
                WHERE id=?""",
             (
                 set_number.strip(), name.strip(),
-                collection or None, _int(num_pieces), _float(price_paid),
+                collection or None, _int(num_pieces), _int(num_figures), _float(price_paid),
                 purchase_date or None, box_condition,
                 1 if manual_present else 0,
                 1 if missing_pieces else 0,
@@ -356,13 +358,13 @@ async def scrape_set(request: Request, set_id: int):
             raise HTTPException(status_code=404)
         set_number = row[0]
 
-    scraped = scrape_playmobil(set_number)
+    scraped = scrape_klickypedia(set_number)
 
     if scraped:
         with get_db() as db:
             fields, params = [], []
-            for key in ("name", "official_photo_url", "public_price", "num_pieces", "playmobil_url"):
-                if scraped.get(key):
+            for key in ("name", "official_photo_url", "year", "collection", "num_pieces", "num_figures", "klickypedia_url"):
+                if scraped.get(key) is not None:
                     fields.append(f"{key} = ?")
                     params.append(scraped[key])
             if fields:
@@ -392,6 +394,6 @@ async def scrape_set(request: Request, set_id: int):
         "request": request,
         "set": s,
         "photos": photos,
-        "scrape_message": "Données récupérées avec succès." if scraped else "Aucune donnée trouvée sur playmobil.fr.",
+        "scrape_message": "Données récupérées avec succès depuis Klickypedia." if scraped else "Aucune donnée trouvée sur Klickypedia.",
         "scrape_ok": bool(scraped),
     })

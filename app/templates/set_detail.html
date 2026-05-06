@@ -37,7 +37,7 @@
                   hx-target="body" hx-swap="innerHTML"
                   hx-indicator="#scrape-spinner"
                   class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-            <span>🔍 Actualiser depuis Playmobil</span>
+            <span>🔍 Actualiser depuis Klickypedia</span>
             <span id="scrape-spinner" class="htmx-indicator text-xs animate-spin">⟳</span>
           </button>
           <!-- Edit button -->
@@ -75,7 +75,7 @@
       <!-- Info grid -->
       <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm divide-y divide-gray-50 dark:divide-gray-800">
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-0 divide-x divide-gray-50 dark:divide-gray-800">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-gray-50 dark:divide-gray-800">
           <div class="p-4">
             <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Prix payé</p>
             <p class="text-xl font-bold text-blue-600 dark:text-blue-400">
@@ -88,9 +88,13 @@
               {% if set.public_price %}{{ "%.2f"|format(set.public_price) }} €{% else %}—{% endif %}
             </p>
           </div>
-          <div class="p-4 col-span-2 sm:col-span-1">
+          <div class="p-4">
             <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Pièces</p>
             <p class="text-xl font-bold text-gray-600 dark:text-gray-300">{{ set.num_pieces if set.num_pieces else '—' }}</p>
+          </div>
+          <div class="p-4">
+            <p class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Figurines</p>
+            <p class="text-xl font-bold text-gray-600 dark:text-gray-300">{{ set.num_figures if set.num_figures else '—' }}</p>
           </div>
         </div>
 
@@ -159,13 +163,21 @@
       </div>
       {% endif %}
 
-      <!-- External link -->
-      {% if set.playmobil_url %}
-      <div>
-        <a href="{{ set.playmobil_url }}" target="_blank" rel="noopener noreferrer"
+      <!-- External links -->
+      {% if set.klickypedia_url or set.playmobil_url %}
+      <div class="flex flex-wrap gap-4">
+        {% if set.klickypedia_url %}
+        <a href="{{ set.klickypedia_url }}" target="_blank" rel="noopener noreferrer"
            class="inline-flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+          🔗 Voir sur Klickypedia
+        </a>
+        {% endif %}
+        {% if set.playmobil_url %}
+        <a href="{{ set.playmobil_url }}" target="_blank" rel="noopener noreferrer"
+           class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:underline">
           🔗 Voir sur playmobil.fr
         </a>
+        {% endif %}
       </div>
       {% endif %}
 
