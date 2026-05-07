@@ -12,11 +12,24 @@ from ..scraper import scrape_klickypedia
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
-COLLECTIONS = [
-    "1.2.3.", "Ayuma", "City Life", "Cityaction", "Country", "Dragons",
-    "Family Fun", "Farm", "Fire Brigade", "Ghostbusters", "Horses of Waterfall",
-    "Knights", "Novelmore", "Pirates", "Police", "Space", "Special Plus",
-    "Sports & Action", "Take Along", "Wiltopia", "Zoo", "Autre",
+THEMES = [
+    "1-2-3", "Action", "Adventure", "Airport", "Animal Clinic",
+    "Arctic Expedition", "Asterix", "Back to the Future", "Christmas",
+    "Circus", "City Life", "City Service", "Coastguard", "Color",
+    "Construction", "Country", "Dinosaur Expedition", "Dollhouse",
+    "Dragons", "Easter", "Egyptians", "EverDreamerz", "Fairies",
+    "Family Fun", "Farm", "Figures Series", "First Smile", "Freetime",
+    "Future Planet", "Ghostbusters", "Gods", "Halloween", "Harbour",
+    "Heidi", "Hospital", "How to Train your Dragon", "Jungle",
+    "Knight Rider", "Knights", "Leisure", "Magic", "Merchandise",
+    "Micro World", "Mini Sets", "Modern House", "Novelmore", "Old Houses",
+    "Outdoor", "Pirates", "Playmobil The Movie", "Playmospace", "Police",
+    "PopStars", "Prehistoric", "Princess", "Racing", "Rescue",
+    "Riding Stables", "Romans", "Safari", "Scooby-Doo", "Space",
+    "Spirit", "Sports", "Summer Fun", "Super 4", "Television",
+    "The Explorers", "Top Agents", "Traffic", "Train", "Victorian",
+    "Vikings", "Waterworld", "Wedding", "Western", "Wiltopia",
+    "Winter Fun", "Zoo",
 ]
 
 BOX_CONDITIONS = ["Neuf", "Très bon état", "Bon état", "État moyen", "Mauvais état", "Sans boîte"]
@@ -172,7 +185,7 @@ async def new_set_form(request: Request):
         "request": request,
         "set": None,
         "set_tags": [],
-        "COLLECTIONS": COLLECTIONS,
+        "THEMES": THEMES,
         "BOX_CONDITIONS": BOX_CONDITIONS,
         "all_tags": all_tags,
     })
@@ -280,7 +293,7 @@ async def edit_set_form(request: Request, set_id: int):
         "request": request,
         "set": s,
         "set_tags": s["tags_list"],
-        "COLLECTIONS": COLLECTIONS,
+        "THEMES": THEMES,
         "BOX_CONDITIONS": BOX_CONDITIONS,
         "all_tags": all_tags,
     })
