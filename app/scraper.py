@@ -6,6 +6,26 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
+THEMES = [
+    "1-2-3", "Action", "Adventure", "Airport", "Animal Clinic",
+    "Arctic Expedition", "Asterix", "Back to the Future", "Christmas",
+    "Circus", "City Life", "City Service", "Coastguard", "Color",
+    "Construction", "Country", "Dinosaur Expedition", "Dollhouse",
+    "Dragons", "Easter", "Egyptians", "EverDreamerz", "Fairies",
+    "Family Fun", "Farm", "Figures Series", "First Smile", "Freetime",
+    "Future Planet", "Ghostbusters", "Gods", "Halloween", "Harbour",
+    "Heidi", "Hospital", "How to Train your Dragon", "Jungle",
+    "Knight Rider", "Knights", "Leisure", "Magic", "Merchandise",
+    "Micro World", "Mini Sets", "Modern House", "Novelmore", "Old Houses",
+    "Outdoor", "Pirates", "Playmobil The Movie", "Playmospace", "Police",
+    "PopStars", "Prehistoric", "Princess", "Racing", "Rescue",
+    "Riding Stables", "Romans", "Safari", "Scooby-Doo", "Space",
+    "Spirit", "Sports", "Summer Fun", "Super 4", "Television",
+    "The Explorers", "Top Agents", "Traffic", "Train", "Victorian",
+    "Vikings", "Waterworld", "Wedding", "Western", "Wiltopia",
+    "Winter Fun", "Zoo",
+]
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -17,8 +37,11 @@ HEADERS = {
 }
 
 _LABEL_YEAR = re.compile(r"ann[eé]e|sortie|release|year", re.I)
-_LABEL_THEME = re.compile(r"th[eè]me|theme|collection|s[eé]rie|serie", re.I)
 _LABEL_PIECES = re.compile(r"pi[eè]ce|piece|part|brique|brick|element", re.I)
+
+
+def _normalize(s: str) -> str:
+    return re.sub(r"[\s\-_]", "", s).lower()
 
 
 def _find_labeled_value(soup: BeautifulSoup, label_re: re.Pattern) -> str | None:
@@ -49,6 +72,27 @@ def _find_labeled_value(soup: BeautifulSoup, label_re: re.Pattern) -> str | None
                 if siblings:
                     return siblings[0].get_text(strip=True)
 
+    return None
+
+
+def _extract_theme(soup: BeautifulSoup) -> str | None:
+    """Extract theme by targeting <strong>Theme: </strong> and matching against THEMES."""
+    for strong in soup.find_all("strong"):
+        if re.search(r"theme\s*:", strong.get_text(), re.I):
+            next_node = strong.next_sibling
+            raw = str(next_node).strip() if next_node else ""
+            if not raw:
+                parent_text = strong.parent.get_text()
+                after = parent_text[parent_text.lower().find("theme"):].replace(strong.get_text(), "", 1)
+                raw = after.strip()
+            if raw:
+                for t in THEMES:
+                    if t.lower() == raw.lower():
+                        return t
+                raw_norm = _normalize(raw)
+                for t in THEMES:
+                    if _normalize(t) == raw_norm:
+                        return t
     return None
 
 
@@ -142,9 +186,9 @@ def scrape_klickypedia(set_number: str) -> dict:
             result["year"] = year
 
         # --- Theme / collection ---
-        raw_theme = _find_labeled_value(soup, _LABEL_THEME)
-        if raw_theme:
-            result["collection"] = raw_theme.strip()
+        theme = _extract_theme(soup)
+        if theme:
+            result["collection"] = theme
 
         # --- Number of figurines ---
         figures = _extract_figures(soup)
