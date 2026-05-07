@@ -18,7 +18,6 @@ HEADERS = {
 
 _LABEL_YEAR = re.compile(r"ann[eé]e|sortie|release|year", re.I)
 _LABEL_THEME = re.compile(r"th[eè]me|theme|collection|s[eé]rie|serie", re.I)
-_LABEL_FIGURES = re.compile(r"figurine|klikky|klicky|figure|personnage|klik", re.I)
 _LABEL_PIECES = re.compile(r"pi[eè]ce|piece|part|brique|brick|element", re.I)
 
 
@@ -50,6 +49,24 @@ def _find_labeled_value(soup: BeautifulSoup, label_re: re.Pattern) -> str | None
                 if siblings:
                     return siblings[0].get_text(strip=True)
 
+    return None
+
+
+def _extract_figures(soup: BeautifulSoup) -> int | None:
+    """Extract the number of figures by looking for <strong>Figures: </strong> in the page."""
+    for strong in soup.find_all("strong"):
+        if re.search(r"figures?\s*:", strong.get_text(), re.I):
+            next_node = strong.next_sibling
+            if next_node:
+                m = re.search(r"\d+", str(next_node))
+                if m:
+                    return int(m.group())
+            # Fallback: scan parent text after the label
+            parent_text = strong.parent.get_text()
+            after = parent_text[parent_text.lower().find("figure"):].replace(strong.get_text(), "", 1)
+            m = re.search(r"\d+", after)
+            if m:
+                return int(m.group())
     return None
 
 
@@ -130,8 +147,7 @@ def scrape_klickypedia(set_number: str) -> dict:
             result["collection"] = raw_theme.strip()
 
         # --- Number of figurines ---
-        raw_figures = _find_labeled_value(soup, _LABEL_FIGURES)
-        figures = _extract_int(raw_figures)
+        figures = _extract_figures(soup)
         if figures is not None:
             result["num_figures"] = figures
 

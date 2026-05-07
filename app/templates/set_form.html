@@ -55,11 +55,11 @@
     <!-- Collection + Year -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Collection officielle</label>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Thème</label>
         <select name="collection"
                 class="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400">
           <option value="">— Non renseigné —</option>
-          {% for c in COLLECTIONS %}
+          {% for c in THEMES %}
           <option value="{{ c }}" {{ 'selected' if set and set.collection == c }}>{{ c }}</option>
           {% endfor %}
         </select>
