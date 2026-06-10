@@ -1,8 +1,9 @@
 import os
 import re
+import sqlite3
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -222,6 +223,13 @@ def create_set(
     set_number = set_number.strip()
     name = (name or "").strip()
 
+    # Duplicate set number: show the existing set instead of crashing on the
+    # UNIQUE constraint.
+    with get_db() as db:
+        existing = db.execute("SELECT id FROM sets WHERE set_number = ?", (set_number,)).fetchone()
+    if existing:
+        return RedirectResponse(f"/sets/{existing[0]}?duplicate=1", status_code=303)
+
     # If the user only typed a set number, look the set up online
     # (Klickypedia, then the official Playmobil shop) to fill in the rest.
     # Ambiguous results are skipped: no guessing without user confirmation.
@@ -238,27 +246,35 @@ def create_set(
         klickypedia_url = klickypedia_url or scraped.get("klickypedia_url")
         playmobil_url = playmobil_url or scraped.get("playmobil_url")
 
-    with get_db() as db:
-        cursor = db.execute(
-            """INSERT INTO sets
-               (set_number, name, collection, num_pieces, num_figures, price_paid,
-                purchase_date, box_condition, manual_present, missing_pieces,
-                missing_pieces_desc, notes, year,
-                official_photo_url, klickypedia_url, playmobil_url, public_price)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                set_number, name,
-                collection or None, _int(num_pieces), _int(num_figures), _float(price_paid),
-                purchase_date or None, box_condition,
-                1 if manual_present else 0,
-                1 if missing_pieces else 0,
-                missing_pieces_desc or None, notes or None, _int(year),
-                official_photo_url or None, klickypedia_url or None,
-                playmobil_url or None, _float(public_price),
-            ),
-        )
-        set_id = cursor.lastrowid
-        _upsert_tags(db, set_id, tags or "")
+    try:
+        with get_db() as db:
+            cursor = db.execute(
+                """INSERT INTO sets
+                   (set_number, name, collection, num_pieces, num_figures, price_paid,
+                    purchase_date, box_condition, manual_present, missing_pieces,
+                    missing_pieces_desc, notes, year,
+                    official_photo_url, klickypedia_url, playmobil_url, public_price)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    set_number, name,
+                    collection or None, _int(num_pieces), _int(num_figures), _float(price_paid),
+                    purchase_date or None, box_condition,
+                    1 if manual_present else 0,
+                    1 if missing_pieces else 0,
+                    missing_pieces_desc or None, notes or None, _int(year),
+                    official_photo_url or None, klickypedia_url or None,
+                    playmobil_url or None, _float(public_price),
+                ),
+            )
+            set_id = cursor.lastrowid
+            _upsert_tags(db, set_id, tags or "")
+    except sqlite3.IntegrityError:
+        # Race: the set was created between the check above and the INSERT
+        with get_db() as db:
+            existing = db.execute("SELECT id FROM sets WHERE set_number = ?", (set_number,)).fetchone()
+        if existing:
+            return RedirectResponse(f"/sets/{existing[0]}?duplicate=1", status_code=303)
+        raise
 
     return RedirectResponse(f"/sets/{set_id}", status_code=303)
 
@@ -268,10 +284,28 @@ def create_set(
 # ---------------------------------------------------------------------------
 
 @router.get("/sets/lookup")
-def lookup_set_info(set_number: str = ""):
+def lookup_set_info(set_number: str = "", exclude: Optional[int] = None):
     number = re.sub(r"[^0-9A-Za-z-]", "", set_number.strip())
     if not number:
         return JSONResponse({"found": False})
+
+    # Already in the collection? Warn before any online lookup.
+    # `exclude` is the id of the set being edited (its own number is fine).
+    with get_db() as db:
+        if exclude is not None:
+            row = db.execute(
+                "SELECT id, name FROM sets WHERE set_number = ? AND id != ?", (number, exclude)
+            ).fetchone()
+        else:
+            row = db.execute("SELECT id, name FROM sets WHERE set_number = ?", (number,)).fetchone()
+    if row:
+        return JSONResponse({
+            "found": False,
+            "already_owned": True,
+            "existing_id": row[0],
+            "existing_name": row[1],
+        })
+
     res = lookup_set(number)
     if res["status"] == "found":
         return JSONResponse({"found": True, **{k: v for k, v in res.items() if k != "status"}})
@@ -302,7 +336,7 @@ def lookup_set_page(url: str, set_number: str = ""):
 # ---------------------------------------------------------------------------
 
 @router.get("/sets/{set_id}", response_class=HTMLResponse)
-async def set_detail(request: Request, set_id: int):
+async def set_detail(request: Request, set_id: int, duplicate: Optional[str] = None):
     with get_db() as db:
         row = db.execute(
             """SELECT s.*, GROUP_CONCAT(DISTINCT t.name) AS tags
@@ -323,11 +357,15 @@ async def set_detail(request: Request, set_id: int):
 
     s = dict(row)
     s["tags_list"] = s["tags"].split(",") if s["tags"] else []
-    return templates.TemplateResponse("set_detail.html", {
+    context = {
         "request": request,
         "set": s,
         "photos": photos,
-    })
+    }
+    if duplicate:
+        context["scrape_message"] = f"Le set #{s['set_number']} est déjà dans votre collection — le voici."
+        context["scrape_ok"] = False
+    return templates.TemplateResponse("set_detail.html", context)
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +373,7 @@ async def set_detail(request: Request, set_id: int):
 # ---------------------------------------------------------------------------
 
 @router.get("/sets/{set_id}/edit", response_class=HTMLResponse)
-async def edit_set_form(request: Request, set_id: int):
+async def edit_set_form(request: Request, set_id: int, duplicate: Optional[str] = None):
     with get_db() as db:
         row = db.execute(
             """SELECT s.*, GROUP_CONCAT(DISTINCT t.name) AS tags
@@ -351,14 +389,20 @@ async def edit_set_form(request: Request, set_id: int):
 
     s = dict(row)
     s["tags_list"] = s["tags"].split(",") if s["tags"] else []
-    return templates.TemplateResponse("set_form.html", {
+    context = {
         "request": request,
         "set": s,
         "set_tags": s["tags_list"],
         "THEMES": THEMES,
         "BOX_CONDITIONS": BOX_CONDITIONS,
         "all_tags": all_tags,
-    })
+    }
+    if duplicate:
+        context["scrape_message"] = (
+            f"Le numéro #{duplicate} est déjà utilisé par un autre set — modifications non enregistrées."
+        )
+        context["scrape_ok"] = False
+    return templates.TemplateResponse("set_form.html", context)
 
 
 @router.post("/sets/{set_id}/edit")
@@ -388,35 +432,52 @@ async def update_set(
         try: return float(v.replace(",", ".")) if v and v.strip() else None
         except ValueError: return None
 
-    with get_db() as db:
-        existing = db.execute("SELECT id FROM sets WHERE id = ?", (set_id,)).fetchone()
-        if not existing:
-            raise HTTPException(status_code=404, detail="Set non trouvé")
+    set_number = set_number.strip()
 
-        db.execute(
-            """UPDATE sets SET
-               set_number=?, name=?, collection=?, num_pieces=?, num_figures=?, price_paid=?,
-               purchase_date=?, box_condition=?, manual_present=?, missing_pieces=?,
-               missing_pieces_desc=?, notes=?, year=?,
-               official_photo_url=COALESCE(?, official_photo_url),
-               klickypedia_url=COALESCE(?, klickypedia_url),
-               playmobil_url=COALESCE(?, playmobil_url),
-               public_price=COALESCE(?, public_price),
-               updated_at=datetime('now')
-               WHERE id=?""",
-            (
-                set_number.strip(), name.strip(),
-                collection or None, _int(num_pieces), _int(num_figures), _float(price_paid),
-                purchase_date or None, box_condition,
-                1 if manual_present else 0,
-                1 if missing_pieces else 0,
-                missing_pieces_desc or None, notes or None, _int(year),
-                official_photo_url or None, klickypedia_url or None,
-                playmobil_url or None, _float(public_price),
-                set_id,
-            ),
+    try:
+        with get_db() as db:
+            existing = db.execute("SELECT id FROM sets WHERE id = ?", (set_id,)).fetchone()
+            if not existing:
+                raise HTTPException(status_code=404, detail="Set non trouvé")
+
+            # The new number must not collide with another set
+            clash = db.execute(
+                "SELECT id FROM sets WHERE set_number = ? AND id != ?", (set_number, set_id)
+            ).fetchone()
+            if clash:
+                return RedirectResponse(
+                    f"/sets/{set_id}/edit?duplicate={quote(set_number)}", status_code=303
+                )
+
+            db.execute(
+                """UPDATE sets SET
+                   set_number=?, name=?, collection=?, num_pieces=?, num_figures=?, price_paid=?,
+                   purchase_date=?, box_condition=?, manual_present=?, missing_pieces=?,
+                   missing_pieces_desc=?, notes=?, year=?,
+                   official_photo_url=COALESCE(?, official_photo_url),
+                   klickypedia_url=COALESCE(?, klickypedia_url),
+                   playmobil_url=COALESCE(?, playmobil_url),
+                   public_price=COALESCE(?, public_price),
+                   updated_at=datetime('now')
+                   WHERE id=?""",
+                (
+                    set_number, name.strip(),
+                    collection or None, _int(num_pieces), _int(num_figures), _float(price_paid),
+                    purchase_date or None, box_condition,
+                    1 if manual_present else 0,
+                    1 if missing_pieces else 0,
+                    missing_pieces_desc or None, notes or None, _int(year),
+                    official_photo_url or None, klickypedia_url or None,
+                    playmobil_url or None, _float(public_price),
+                    set_id,
+                ),
+            )
+            _upsert_tags(db, set_id, tags or "")
+    except sqlite3.IntegrityError:
+        # Race: another set took this number between the check and the UPDATE
+        return RedirectResponse(
+            f"/sets/{set_id}/edit?duplicate={quote(set_number)}", status_code=303
         )
-        _upsert_tags(db, set_id, tags or "")
 
     return RedirectResponse(f"/sets/{set_id}", status_code=303)
 

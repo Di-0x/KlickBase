@@ -35,6 +35,9 @@
           lookupOk: null,
           lookupMessage: '',
           candidates: [],
+          excludeId: '{{ set.id if set else '' }}',
+          ownedId: null,
+          ownedName: '',
           addTag(tag) {
             const tags = this.tagsInput.split(',').map(t => t.trim()).filter(t => t);
             if (!tags.includes(tag)) { tags.push(tag); }
@@ -81,11 +84,19 @@
             this.lookupLoading = true;
             this.lookupOk = null;
             this.candidates = [];
+            this.ownedId = null;
+            this.ownedName = '';
             this.lookupMessage = 'Recherche du set en ligne…';
             try {
-              const resp = await fetch(`/sets/lookup?set_number=${encodeURIComponent(num)}`);
+              const exclude = this.excludeId ? `&exclude=${encodeURIComponent(this.excludeId)}` : '';
+              const resp = await fetch(`/sets/lookup?set_number=${encodeURIComponent(num)}${exclude}`);
               const data = await resp.json();
-              if (data.found) {
+              if (data.already_owned) {
+                this.ownedId = data.existing_id;
+                this.ownedName = data.existing_name || '';
+                this.lookupOk = false;
+                this.lookupMessage = `⚠️ Le set #${num} est déjà dans votre collection.`;
+              } else if (data.found) {
                 this.applyData(data, num);
               } else if (data.candidates && data.candidates.length) {
                 this.candidates = data.candidates;
@@ -146,6 +157,13 @@
         </div>
         <p class="text-xs mt-1" x-show="lookupMessage" x-cloak x-text="lookupMessage"
            :class="lookupOk === true ? 'text-green-600 dark:text-green-400' : (lookupOk === false ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500')"></p>
+        <!-- Set already in the collection: link to the existing record -->
+        <p x-show="ownedId" x-cloak class="text-xs mt-1">
+          <a :href="`/sets/${ownedId}`"
+             class="text-amber-600 dark:text-amber-400 underline hover:no-underline">
+            <span x-text="ownedName ? `Voir la fiche : ${ownedName} →` : 'Voir la fiche existante →'"></span>
+          </a>
+        </p>
         <!-- Ambiguous lookup: let the user pick the right Klickypedia page -->
         <div x-show="candidates.length" x-cloak class="mt-2 space-y-1.5">
           <template x-for="c in candidates" :key="c.url">
