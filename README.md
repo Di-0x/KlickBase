@@ -35,7 +35,7 @@
   - Free-form notes
   - Custom tags for personal collections
 - **Photo gallery** — upload multiple photos per set, choose the primary photo; falls back to the official Playmobil photo if none uploaded
-- **Auto-scraping** — when you type a set number, the form automatically looks the set up online and fills in name, official photo, release year, theme, number of pieces, and number of figurines from [Klickypedia](https://www.klickypedia.com), with the official [Playmobil shop](https://www.playmobil.com) as fallback (best-effort, no API key required). Also available as a one-click refresh on the set detail page.
+- **Auto-scraping** — when you type a set number, the form automatically looks the set up online and fills in name, official photo, release year, theme, number of pieces, and number of figurines from [Klickypedia](https://www.klickypedia.com), with the official [Playmobil shop](https://www.playmobil.com) as fallback (best-effort, no API key required). When several Klickypedia pages match the number, the form lists them and lets you pick the right one; set numbers are always verified against the page title, never the URL slug. Also available as a one-click refresh on the set detail page.
 - **Responsive** — mobile-first design, works on smartphone and desktop
 
 ---

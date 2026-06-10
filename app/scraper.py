@@ -1,3 +1,4 @@
+import html
 import json
 import logging
 import re
@@ -86,30 +87,124 @@ def _extract_year(text: str | None) -> int | None:
     return int(m.group()) if m else None
 
 
-def scrape_klickypedia(set_number: str) -> dict:
-    """Scrape set data from klickypedia.com. Returns empty dict on failure."""
-    url = f"https://www.klickypedia.com/sets/{set_number}"
+KLICKYPEDIA_BASE = "https://www.klickypedia.com"
+
+# Set pages are titled like "Playmobil 72030 - Astronaut"
+_SET_TITLE_RE = re.compile(r"playmobil\s*#?\s*(\d{3,6}[A-Za-z]?)\s*(?:[-–—:]\s*(.*))?", re.I)
+
+
+def _parse_set_title(text: str | None) -> tuple[str | None, str | None]:
+    """Extract (set_number, clean_name) from a title like 'Playmobil 72030 - Astronaut'."""
+    if not text:
+        return None, None
+    m = _SET_TITLE_RE.search(text)
+    if not m:
+        return None, None
+    name = (m.group(2) or "").strip() or None
+    return m.group(1), name
+
+
+def search_klickypedia(set_number: str) -> list[dict]:
+    """Search klickypedia.com for a set number.
+
+    Returns candidates as [{"url", "title", "number"}], where "number" is the
+    set number parsed from the result title — URL slugs are unreliable: several
+    sets can share the same slug prefix, and slugs sometimes contain typos.
+    """
+    candidates: list[dict] = []
+    seen: set[str] = set()
+
+    def _add(url: str, title: str):
+        url = url.split("#")[0].split("?")[0]
+        if "/sets/" not in url or url.rstrip("/").endswith("/sets"):
+            return
+        if url in seen:
+            # A result can appear twice (thumbnail link without text + title link)
+            if title:
+                for c in candidates:
+                    if c["url"] == url and not c["title"]:
+                        c["title"] = title
+                        c["number"] = _parse_set_title(title)[0]
+            return
+        seen.add(url)
+        candidates.append({"url": url, "title": title, "number": _parse_set_title(title)[0]})
+
+    # 1) WordPress REST API (clean JSON when available)
+    try:
+        resp = requests.get(
+            f"{KLICKYPEDIA_BASE}/wp-json/wp/v2/search",
+            params={"search": set_number, "per_page": 20},
+            headers=HEADERS, timeout=15,
+        )
+        if resp.status_code == 200:
+            for item in resp.json():
+                if isinstance(item, dict):
+                    _add(item.get("url", ""), html.unescape(item.get("title") or ""))
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("Klickypedia REST search failed for %s: %s", set_number, exc)
+
+    if candidates:
+        return candidates
+
+    # 2) Fallback: parse the HTML search results page
+    try:
+        resp = requests.get(KLICKYPEDIA_BASE, params={"s": set_number}, headers=HEADERS, timeout=15)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                title = a.get_text(strip=True) or a.get("title", "")
+                # Keep only results actually related to the searched number:
+                # the slug may not contain it (typos), but the title then does.
+                if set_number in href or set_number in title:
+                    _add(urljoin(KLICKYPEDIA_BASE, href), title)
+    except requests.RequestException as exc:
+        logger.warning("Klickypedia HTML search failed for %s: %s", set_number, exc)
+
+    return candidates
+
+
+def scrape_klickypedia_page(url: str, set_number: str) -> dict:
+    """Scrape a klickypedia.com set page. Returns empty dict on failure.
+
+    The result includes "set_number_found" (the number displayed on the page)
+    and "number_mismatch" when it differs from the requested number: only the
+    page title is authoritative, never the URL.
+    """
     result: dict = {"klickypedia_url": url}
 
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15, allow_redirects=True)
         if resp.status_code != 200:
-            logger.warning("Klickypedia returned %s for set %s", resp.status_code, set_number)
+            logger.warning("Klickypedia returned %s for %s", resp.status_code, url)
             return {}
+        result["klickypedia_url"] = resp.url
 
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # --- Name ---
-        og_title = soup.find("meta", property="og:title")
-        if og_title:
-            title = og_title.get("content", "").strip()
-            title = re.sub(r"\s*[\|–\-]\s*[Kk]lickypedia.*$", "", title).strip()
-            if title:
-                result["name"] = title
+        # --- Page title: "Playmobil 72030 - Astronaut" (authoritative) ---
+        h1 = (
+            soup.find("h1", attrs={"itemprop": "name"})
+            or soup.find("h1", class_=re.compile("entry-title", re.I))
+            or soup.find("h1")
+        )
+        found_number, clean_name = _parse_set_title(h1.get_text(" ", strip=True) if h1 else None)
+        if found_number:
+            result["set_number_found"] = found_number
+            result["number_mismatch"] = bool(set_number) and found_number != set_number
+        if clean_name:
+            result["name"] = clean_name
+
+        # --- Name fallback (og:title) ---
         if not result.get("name"):
-            h1 = soup.find("h1")
-            if h1:
-                result["name"] = h1.get_text(strip=True)
+            og_title = soup.find("meta", property="og:title")
+            if og_title:
+                title = og_title.get("content", "").strip()
+                title = re.sub(r"\s*[\|–\-]\s*[Kk]lickypedia.*$", "", title).strip()
+                if title:
+                    result["name"] = title
+        if not result.get("name") and h1:
+            result["name"] = h1.get_text(strip=True)
 
         # --- Main photo ---
         og_image = soup.find("meta", property="og:image")
@@ -303,15 +398,47 @@ def scrape_playmobil(set_number: str) -> dict:
 def lookup_set(set_number: str) -> dict:
     """Find set data online: Klickypedia first, official Playmobil shop as fallback.
 
-    Returns a dict with a "source" key indicating where data came from,
-    or an empty dict if the set was found nowhere.
+    Returns one of:
+      {"status": "found", "source": ..., **data}        — unambiguous, verified match
+      {"status": "ambiguous", "source": "Klickypedia",
+       "candidates": [{"url", "title", "number"}]}      — the user must choose
+      {"status": "not_found"}
     """
-    data = scrape_klickypedia(set_number)
-    if data:
-        data["source"] = "Klickypedia"
-        return data
+    candidates = search_klickypedia(set_number)
+    exact = [c for c in candidates if c["number"] == set_number]
+
+    target = None
+    if len(exact) == 1:
+        target = exact[0]
+    elif not exact and len(candidates) == 1:
+        target = candidates[0]
+    elif not candidates:
+        # Search unavailable: try the legacy direct URL, but verify the number
+        # displayed on the page (WordPress guesses redirects from slug prefixes).
+        data = scrape_klickypedia_page(f"{KLICKYPEDIA_BASE}/sets/{set_number}", set_number)
+        if data:
+            if not data.get("number_mismatch"):
+                return {"status": "found", "source": "Klickypedia", **data}
+            # Wrong set behind the guessed URL: offer it as a candidate
+            candidates = [{
+                "url": data["klickypedia_url"],
+                "title": f"Playmobil {data.get('set_number_found', '?')} - {data.get('name', '')}".strip(" -"),
+                "number": data.get("set_number_found"),
+            }]
+
+    if target:
+        data = scrape_klickypedia_page(target["url"], set_number)
+        if data and not data.get("number_mismatch"):
+            return {"status": "found", "source": "Klickypedia", **data}
+
+    if candidates:
+        return {
+            "status": "ambiguous",
+            "source": "Klickypedia",
+            "candidates": exact if len(exact) > 1 else candidates,
+        }
+
     data = scrape_playmobil(set_number)
     if data:
-        data["source"] = "Playmobil"
-        return data
-    return {}
+        return {"status": "found", "source": "Playmobil", **data}
+    return {"status": "not_found"}

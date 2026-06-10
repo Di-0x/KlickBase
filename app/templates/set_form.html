@@ -34,51 +34,92 @@
           lookupLoading: false,
           lookupOk: null,
           lookupMessage: '',
+          candidates: [],
           addTag(tag) {
             const tags = this.tagsInput.split(',').map(t => t.trim()).filter(t => t);
             if (!tags.includes(tag)) { tags.push(tag); }
             this.tagsInput = tags.join(', ');
+          },
+          applyData(data, num, force = false) {
+            const form = this.$root;
+            const fill = (field, value) => {
+              const el = form.querySelector(`[name='${field}']`);
+              if (el && value !== undefined && value !== null && (force || !el.value)) el.value = value;
+            };
+            fill('name', data.name);
+            fill('year', data.year);
+            fill('num_pieces', data.num_pieces);
+            fill('num_figures', data.num_figures);
+            if (data.collection) {
+              const select = form.querySelector(`[name='collection']`);
+              if (select && (force || !select.value)) {
+                let opt = [...select.options].find(o => o.value.toLowerCase() === data.collection.toLowerCase());
+                if (!opt) { opt = new Option(data.collection, data.collection); select.add(opt); }
+                select.value = opt.value;
+              }
+            }
+            if (data.official_photo_url && (force || !this.officialPhotoUrl)) this.officialPhotoUrl = data.official_photo_url;
+            if (data.klickypedia_url) this.klickypediaUrl = data.klickypedia_url;
+            if (data.playmobil_url) this.playmobilUrl = data.playmobil_url;
+            if (data.public_price && (force || !this.publicPrice)) this.publicPrice = data.public_price;
+            let msg = `Set trouvé sur ${data.source || 'Klickypedia'}`
+              + (data.set_number_found || data.name
+                  ? ` : ${[data.set_number_found, data.name].filter(v => v).join(' — ')}`
+                  : '')
+              + '. Champs complétés.';
+            if (data.number_mismatch && data.set_number_found) {
+              msg += ` ⚠️ Le numéro affiché sur la fiche (${data.set_number_found}) diffère du numéro saisi (${num}) : vérifiez avant d'enregistrer.`;
+              this.lookupOk = false;
+            } else {
+              this.lookupOk = true;
+            }
+            this.lookupMessage = msg;
           },
           async lookupSet() {
             const num = this.setNumber.trim();
             if (!num || this.lookupLoading) return;
             this.lookupLoading = true;
             this.lookupOk = null;
+            this.candidates = [];
             this.lookupMessage = 'Recherche du set en ligne…';
             try {
               const resp = await fetch(`/sets/lookup?set_number=${encodeURIComponent(num)}`);
               const data = await resp.json();
-              if (!data.found) {
+              if (data.found) {
+                this.applyData(data, num);
+              } else if (data.candidates && data.candidates.length) {
+                this.candidates = data.candidates;
+                this.lookupOk = null;
+                this.lookupMessage = `${data.candidates.length} fiches Klickypedia peuvent correspondre — choisissez la bonne :`;
+              } else {
                 this.lookupOk = false;
                 this.lookupMessage = 'Set introuvable sur Klickypedia et sur le site Playmobil.';
-                return;
               }
-              const form = this.$root;
-              const fill = (field, value) => {
-                const el = form.querySelector(`[name='${field}']`);
-                if (el && value !== undefined && value !== null && !el.value) el.value = value;
-              };
-              fill('name', data.name);
-              fill('year', data.year);
-              fill('num_pieces', data.num_pieces);
-              fill('num_figures', data.num_figures);
-              if (data.collection) {
-                const select = form.querySelector(`[name='collection']`);
-                if (select && !select.value) {
-                  let opt = [...select.options].find(o => o.value.toLowerCase() === data.collection.toLowerCase());
-                  if (!opt) { opt = new Option(data.collection, data.collection); select.add(opt); }
-                  select.value = opt.value;
-                }
-              }
-              if (data.official_photo_url && !this.officialPhotoUrl) this.officialPhotoUrl = data.official_photo_url;
-              if (data.klickypedia_url) this.klickypediaUrl = data.klickypedia_url;
-              if (data.playmobil_url) this.playmobilUrl = data.playmobil_url;
-              if (data.public_price && !this.publicPrice) this.publicPrice = data.public_price;
-              this.lookupOk = true;
-              this.lookupMessage = `Set trouvé sur ${data.source} — les champs vides ont été complétés.`;
             } catch (e) {
               this.lookupOk = false;
               this.lookupMessage = 'Erreur lors de la recherche en ligne.';
+            } finally {
+              this.lookupLoading = false;
+            }
+          },
+          async chooseCandidate(c) {
+            if (this.lookupLoading) return;
+            const num = this.setNumber.trim();
+            this.lookupLoading = true;
+            this.lookupMessage = 'Récupération de la fiche…';
+            try {
+              const resp = await fetch(`/sets/lookup/page?url=${encodeURIComponent(c.url)}&set_number=${encodeURIComponent(num)}`);
+              const data = await resp.json();
+              if (data.found) {
+                this.candidates = [];
+                this.applyData(data, num, true);
+              } else {
+                this.lookupOk = false;
+                this.lookupMessage = 'Impossible de récupérer cette fiche Klickypedia.';
+              }
+            } catch (e) {
+              this.lookupOk = false;
+              this.lookupMessage = 'Erreur lors de la récupération de la fiche.';
             } finally {
               this.lookupLoading = false;
             }
@@ -105,6 +146,15 @@
         </div>
         <p class="text-xs mt-1" x-show="lookupMessage" x-cloak x-text="lookupMessage"
            :class="lookupOk === true ? 'text-green-600 dark:text-green-400' : (lookupOk === false ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500')"></p>
+        <!-- Ambiguous lookup: let the user pick the right Klickypedia page -->
+        <div x-show="candidates.length" x-cloak class="mt-2 space-y-1.5">
+          <template x-for="c in candidates" :key="c.url">
+            <button type="button" @click="chooseCandidate(c)" :disabled="lookupLoading"
+                    class="w-full text-left text-sm px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition disabled:opacity-50">
+              <span x-text="c.title || c.url"></span>
+            </button>
+          </template>
+        </div>
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom {% if set %}<span class="text-red-500">*</span>{% endif %}</label>
