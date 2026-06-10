@@ -2,13 +2,14 @@ import os
 import re
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..database import get_db
-from ..scraper import lookup_set
+from ..scraper import lookup_set, scrape_klickypedia_page
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -223,8 +224,10 @@ def create_set(
 
     # If the user only typed a set number, look the set up online
     # (Klickypedia, then the official Playmobil shop) to fill in the rest.
+    # Ambiguous results are skipped: no guessing without user confirmation.
     if not name:
-        scraped = lookup_set(set_number)
+        res = lookup_set(set_number)
+        scraped = res if res.get("status") == "found" else {}
         name = scraped.get("name") or f"Set {set_number}"
         collection = collection or scraped.get("collection")
         year = year or (str(scraped["year"]) if scraped.get("year") else None)
@@ -269,8 +272,29 @@ def lookup_set_info(set_number: str = ""):
     number = re.sub(r"[^0-9A-Za-z-]", "", set_number.strip())
     if not number:
         return JSONResponse({"found": False})
-    data = lookup_set(number)
-    return JSONResponse({"found": bool(data), **data})
+    res = lookup_set(number)
+    if res["status"] == "found":
+        return JSONResponse({"found": True, **{k: v for k, v in res.items() if k != "status"}})
+    if res["status"] == "ambiguous":
+        return JSONResponse({"found": False, "source": res["source"], "candidates": res["candidates"]})
+    return JSONResponse({"found": False})
+
+
+@router.get("/sets/lookup/page")
+def lookup_set_page(url: str, set_number: str = ""):
+    """Scrape a specific Klickypedia page chosen by the user among the candidates."""
+    parsed = urlparse(url)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in ("www.klickypedia.com", "klickypedia.com")
+        or not parsed.path.startswith("/sets/")
+    ):
+        return JSONResponse({"found": False}, status_code=400)
+    number = re.sub(r"[^0-9A-Za-z-]", "", set_number.strip())
+    data = scrape_klickypedia_page(url, number)
+    if data:
+        return JSONResponse({"found": True, "source": "Klickypedia", **data})
+    return JSONResponse({"found": False})
 
 
 # ---------------------------------------------------------------------------
@@ -412,6 +436,19 @@ async def delete_set(set_id: int):
 # Scrape
 # ---------------------------------------------------------------------------
 
+def _scrape_message(res: dict) -> str:
+    if res["status"] == "found":
+        return f"Données récupérées avec succès depuis {res['source']}."
+    if res["status"] == "ambiguous":
+        titles = [c.get("title") or c.get("url") for c in res["candidates"]]
+        listed = " ; ".join(titles[:3]) + ("…" if len(titles) > 3 else "")
+        return (
+            f"Numéro ambigu : {len(titles)} fiches possibles sur Klickypedia ({listed}). "
+            "Utilisez le bouton 🔍 du formulaire d'édition pour choisir la bonne."
+        )
+    return "Aucune donnée trouvée sur Klickypedia ni sur le site Playmobil."
+
+
 @router.post("/sets/{set_id}/scrape", response_class=HTMLResponse)
 def scrape_set(request: Request, set_id: int):
     with get_db() as db:
@@ -420,7 +457,8 @@ def scrape_set(request: Request, set_id: int):
             raise HTTPException(status_code=404)
         set_number = row[0]
 
-    scraped = lookup_set(set_number)
+    res = lookup_set(set_number)
+    scraped = res if res.get("status") == "found" else {}
 
     if scraped:
         with get_db() as db:
@@ -457,9 +495,6 @@ def scrape_set(request: Request, set_id: int):
         "request": request,
         "set": s,
         "photos": photos,
-        "scrape_message": (
-            f"Données récupérées avec succès depuis {scraped['source']}."
-            if scraped else "Aucune donnée trouvée sur Klickypedia ni sur le site Playmobil."
-        ),
+        "scrape_message": _scrape_message(res),
         "scrape_ok": bool(scraped),
     })
