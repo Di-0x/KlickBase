@@ -1,5 +1,7 @@
+import json
 import logging
 import re
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -167,4 +169,149 @@ def scrape_klickypedia(set_number: str) -> dict:
     # Return only if we got at least a name or a photo
     if result.get("name") or result.get("official_photo_url"):
         return result
+    return {}
+
+
+PLAYMOBIL_BASE = "https://www.playmobil.com"
+PLAYMOBIL_LOCALE = "fr-fr"
+
+
+def _jsonld_products(soup: BeautifulSoup):
+    """Yield JSON-LD nodes of @type Product found in the page."""
+    for script in soup.find_all("script", type="application/ld+json"):
+        raw = script.string or script.get_text()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            graph = item.get("@graph")
+            nodes = [item] + (graph if isinstance(graph, list) else [])
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                node_type = node.get("@type")
+                if node_type == "Product" or (isinstance(node_type, list) and "Product" in node_type):
+                    yield node
+
+
+def _fetch_playmobil_product(set_number: str) -> tuple[str, str] | None:
+    """Locate the product page on playmobil.com. Returns (url, html) or None."""
+    # The on-site search often redirects straight to the product page when the
+    # query is an exact set number; otherwise we pick the first product link.
+    search_url = f"{PLAYMOBIL_BASE}/{PLAYMOBIL_LOCALE}/search?q={set_number}"
+    try:
+        resp = requests.get(search_url, headers=HEADERS, timeout=15, allow_redirects=True)
+        if resp.status_code == 200:
+            if set_number in resp.url and "search" not in resp.url:
+                return resp.url, resp.text
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if set_number in href and "search" not in href:
+                    product_url = urljoin(PLAYMOBIL_BASE, href)
+                    prod_resp = requests.get(product_url, headers=HEADERS, timeout=15, allow_redirects=True)
+                    if prod_resp.status_code == 200:
+                        return prod_resp.url, prod_resp.text
+                    break
+    except requests.RequestException as exc:
+        logger.warning("Playmobil search failed for set %s: %s", set_number, exc)
+
+    # Fallback: known direct URL patterns
+    for candidate in (
+        f"{PLAYMOBIL_BASE}/{PLAYMOBIL_LOCALE}/{set_number}.html",
+        f"{PLAYMOBIL_BASE}/{PLAYMOBIL_LOCALE}/p/{set_number}",
+    ):
+        try:
+            resp = requests.get(candidate, headers=HEADERS, timeout=15, allow_redirects=True)
+            if resp.status_code == 200:
+                return resp.url, resp.text
+        except requests.RequestException:
+            continue
+    return None
+
+
+def scrape_playmobil(set_number: str) -> dict:
+    """Scrape set data from the official playmobil.com shop. Returns empty dict on failure."""
+    fetched = _fetch_playmobil_product(set_number)
+    if not fetched:
+        logger.warning("No Playmobil product page found for set %s", set_number)
+        return {}
+    url, html = fetched
+    result: dict = {"playmobil_url": url}
+
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+
+        # --- Structured data (JSON-LD Product) ---
+        product = next(_jsonld_products(soup), None)
+        if product:
+            name = product.get("name")
+            if isinstance(name, str) and name.strip():
+                result["name"] = name.strip()
+
+            image = product.get("image")
+            if isinstance(image, list):
+                image = image[0] if image else None
+            if isinstance(image, dict):
+                image = image.get("url")
+            if isinstance(image, str) and image.strip():
+                result["official_photo_url"] = urljoin(PLAYMOBIL_BASE, image.strip())
+
+            offers = product.get("offers")
+            if isinstance(offers, list):
+                offers = offers[0] if offers else None
+            if isinstance(offers, dict):
+                price = offers.get("price") or offers.get("lowPrice")
+                if price is not None:
+                    try:
+                        result["public_price"] = float(str(price).replace(",", "."))
+                    except ValueError:
+                        pass
+
+        # --- Open Graph fallbacks ---
+        if not result.get("name"):
+            og_title = soup.find("meta", property="og:title")
+            if og_title and og_title.get("content"):
+                result["name"] = og_title["content"].strip()
+        if not result.get("official_photo_url"):
+            og_image = soup.find("meta", property="og:image")
+            if og_image and og_image.get("content"):
+                result["official_photo_url"] = urljoin(PLAYMOBIL_BASE, og_image["content"].strip())
+
+        # Clean up shop suffixes like "Grand manège - 70819 | PLAYMOBIL®"
+        if result.get("name"):
+            name = re.sub(r"\s*[\|–\-]\s*PLAYMOBIL.*$", "", result["name"], flags=re.I)
+            name = re.sub(rf"\s*[\|–\-]\s*{re.escape(set_number)}\s*$", "", name).strip()
+            if name:
+                result["name"] = name
+
+    except Exception as exc:
+        logger.warning("Playmobil parsing failed for set %s: %s", set_number, exc)
+        return {}
+
+    if result.get("name") or result.get("official_photo_url"):
+        return result
+    return {}
+
+
+def lookup_set(set_number: str) -> dict:
+    """Find set data online: Klickypedia first, official Playmobil shop as fallback.
+
+    Returns a dict with a "source" key indicating where data came from,
+    or an empty dict if the set was found nowhere.
+    """
+    data = scrape_klickypedia(set_number)
+    if data:
+        data["source"] = "Klickypedia"
+        return data
+    data = scrape_playmobil(set_number)
+    if data:
+        data["source"] = "Playmobil"
+        return data
     return {}

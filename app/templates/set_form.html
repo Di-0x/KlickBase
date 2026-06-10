@@ -26,10 +26,62 @@
         x-data="{
           missingPieces: {{ 'true' if set and set.missing_pieces else 'false' }},
           tagsInput: '{{ set.tags_list | join(',') if set and set.tags_list else '' }}',
+          setNumber: '{{ set.set_number if set else '' }}',
+          officialPhotoUrl: '{{ set.official_photo_url if set and set.official_photo_url else '' }}',
+          klickypediaUrl: '{{ set.klickypedia_url if set and set.klickypedia_url else '' }}',
+          playmobilUrl: '{{ set.playmobil_url if set and set.playmobil_url else '' }}',
+          publicPrice: '{{ set.public_price if set and set.public_price else '' }}',
+          lookupLoading: false,
+          lookupOk: null,
+          lookupMessage: '',
           addTag(tag) {
             const tags = this.tagsInput.split(',').map(t => t.trim()).filter(t => t);
             if (!tags.includes(tag)) { tags.push(tag); }
             this.tagsInput = tags.join(', ');
+          },
+          async lookupSet() {
+            const num = this.setNumber.trim();
+            if (!num || this.lookupLoading) return;
+            this.lookupLoading = true;
+            this.lookupOk = null;
+            this.lookupMessage = 'Recherche du set en ligne…';
+            try {
+              const resp = await fetch(`/sets/lookup?set_number=${encodeURIComponent(num)}`);
+              const data = await resp.json();
+              if (!data.found) {
+                this.lookupOk = false;
+                this.lookupMessage = 'Set introuvable sur Klickypedia et sur le site Playmobil.';
+                return;
+              }
+              const form = this.$root;
+              const fill = (field, value) => {
+                const el = form.querySelector(`[name='${field}']`);
+                if (el && value !== undefined && value !== null && !el.value) el.value = value;
+              };
+              fill('name', data.name);
+              fill('year', data.year);
+              fill('num_pieces', data.num_pieces);
+              fill('num_figures', data.num_figures);
+              if (data.collection) {
+                const select = form.querySelector(`[name='collection']`);
+                if (select && !select.value) {
+                  let opt = [...select.options].find(o => o.value.toLowerCase() === data.collection.toLowerCase());
+                  if (!opt) { opt = new Option(data.collection, data.collection); select.add(opt); }
+                  select.value = opt.value;
+                }
+              }
+              if (data.official_photo_url && !this.officialPhotoUrl) this.officialPhotoUrl = data.official_photo_url;
+              if (data.klickypedia_url) this.klickypediaUrl = data.klickypedia_url;
+              if (data.playmobil_url) this.playmobilUrl = data.playmobil_url;
+              if (data.public_price && !this.publicPrice) this.publicPrice = data.public_price;
+              this.lookupOk = true;
+              this.lookupMessage = `Set trouvé sur ${data.source} — les champs vides ont été complétés.`;
+            } catch (e) {
+              this.lookupOk = false;
+              this.lookupMessage = 'Erreur lors de la recherche en ligne.';
+            } finally {
+              this.lookupLoading = false;
+            }
           }
         }"
         class="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-6 space-y-5">
@@ -38,19 +90,50 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">N° de set <span class="text-red-500">*</span></label>
-        <input type="text" name="set_number" required
-               value="{{ set.set_number if set else '' }}"
-               placeholder="ex: 70819"
-               class="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <div class="flex gap-2">
+          <input type="text" name="set_number" required
+                 x-model="setNumber" @change="lookupSet()"
+                 value="{{ set.set_number if set else '' }}"
+                 placeholder="ex: 70819"
+                 class="flex-1 min-w-0 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <button type="button" @click="lookupSet()" :disabled="lookupLoading"
+                  title="Rechercher le set sur Klickypedia / Playmobil"
+                  class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-50">
+            <span x-show="!lookupLoading">🔍</span>
+            <span x-show="lookupLoading" x-cloak class="inline-block animate-spin">⟳</span>
+          </button>
+        </div>
+        <p class="text-xs mt-1" x-show="lookupMessage" x-cloak x-text="lookupMessage"
+           :class="lookupOk === true ? 'text-green-600 dark:text-green-400' : (lookupOk === false ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500')"></p>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom <span class="text-red-500">*</span></label>
-        <input type="text" name="name" required
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom {% if set %}<span class="text-red-500">*</span>{% endif %}</label>
+        <input type="text" name="name" {{ 'required' if set }}
                value="{{ set.name if set else '' }}"
-               placeholder="ex: Grand manège"
+               placeholder="{{ 'ex: Grand manège' if set else 'Complété automatiquement si vide' }}"
                class="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400">
       </div>
     </div>
+
+    <!-- Official photo preview (filled by the online lookup) -->
+    <div x-show="officialPhotoUrl" x-cloak
+         class="flex items-center gap-4 p-3 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+      <img :src="officialPhotoUrl" alt="Photo officielle"
+           class="h-20 w-20 object-contain rounded-lg bg-white border border-gray-100 dark:border-gray-700">
+      <div class="text-sm text-gray-600 dark:text-gray-300">
+        Photo officielle trouvée en ligne — elle sera enregistrée avec le set.
+        <div class="flex gap-3 mt-1 text-xs">
+          <a x-show="klickypediaUrl" :href="klickypediaUrl" target="_blank" rel="noopener noreferrer"
+             class="text-blue-600 dark:text-blue-400 hover:underline">Klickypedia ↗</a>
+          <a x-show="playmobilUrl" :href="playmobilUrl" target="_blank" rel="noopener noreferrer"
+             class="text-blue-600 dark:text-blue-400 hover:underline">Playmobil ↗</a>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" name="official_photo_url" :value="officialPhotoUrl">
+    <input type="hidden" name="klickypedia_url" :value="klickypediaUrl">
+    <input type="hidden" name="playmobil_url" :value="playmobilUrl">
+    <input type="hidden" name="public_price" :value="publicPrice">
 
     <!-- Collection + Year -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

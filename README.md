@@ -35,7 +35,7 @@
   - Free-form notes
   - Custom tags for personal collections
 - **Photo gallery** — upload multiple photos per set, choose the primary photo; falls back to the official Playmobil photo if none uploaded
-- **Auto-scraping** — one-click fetch of name, official photo, release year, theme, number of pieces, and number of figurines from [Klickypedia](https://www.klickypedia.com) (best-effort, no API key required)
+- **Auto-scraping** — when you type a set number, the form automatically looks the set up online and fills in name, official photo, release year, theme, number of pieces, and number of figurines from [Klickypedia](https://www.klickypedia.com), with the official [Playmobil shop](https://www.playmobil.com) as fallback (best-effort, no API key required). Also available as a one-click refresh on the set detail page.
 - **Responsive** — mobile-first design, works on smartphone and desktop
 
 ---
@@ -50,7 +50,7 @@
 | Interactivity | Alpine.js | Minimal JS for toggles and modals |
 | Styling | Tailwind CSS (CDN) | Responsive, no build step |
 | Image | `python:3.12-slim` | ~150 MB, non-root user, read-only FS |
-| Scraping | `requests` + `beautifulsoup4` → [Klickypedia](https://www.klickypedia.com) | Fan database with set metadata |
+| Scraping | `requests` + `beautifulsoup4` → [Klickypedia](https://www.klickypedia.com), fallback [playmobil.com](https://www.playmobil.com) | Fan database with set metadata, official shop as backup |
 
 ---
 
@@ -215,7 +215,7 @@ klickbase/
 ├── app/
 │   ├── main.py                  # FastAPI app entry point
 │   ├── database.py              # SQLite setup and context manager
-│   ├── scraper.py               # Klickypedia scraping logic
+│   ├── scraper.py               # Klickypedia + playmobil.com scraping logic
 │   ├── routes/
 │   │   ├── sets.py              # CRUD routes for sets
 │   │   └── photos.py            # Photo upload/management routes
@@ -260,7 +260,7 @@ This is a personal home-made project, but issues and pull requests are welcome.
 >
 > - Loss or corruption of your collection data
 > - Unauthorized access if the application is improperly exposed to a public network
-> - Any issue caused by third-party scraping of [Klickypedia](https://www.klickypedia.com) (availability, accuracy of data, terms of service)
+> - Any issue caused by third-party scraping of [Klickypedia](https://www.klickypedia.com) or [playmobil.com](https://www.playmobil.com) (availability, accuracy of data, terms of service)
 > - Incompatibilities with your environment or Docker configuration
 >
 > Use this software at your own risk. Always keep backups of your `./data` directory.

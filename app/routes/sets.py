@@ -1,13 +1,14 @@
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..database import get_db
-from ..scraper import scrape_klickypedia
+from ..scraper import lookup_set
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -192,9 +193,9 @@ async def new_set_form(request: Request):
 
 
 @router.post("/sets/new")
-async def create_set(
+def create_set(
     set_number: str = Form(...),
-    name: str = Form(...),
+    name: Optional[str] = Form(None),
     collection: Optional[str] = Form(None),
     num_pieces: Optional[str] = Form(None),
     num_figures: Optional[str] = Form(None),
@@ -207,32 +208,69 @@ async def create_set(
     notes: Optional[str] = Form(None),
     year: Optional[str] = Form(None),
     tags: Optional[str] = Form(None),
+    official_photo_url: Optional[str] = Form(None),
+    klickypedia_url: Optional[str] = Form(None),
+    playmobil_url: Optional[str] = Form(None),
+    public_price: Optional[str] = Form(None),
 ):
     def _int(v): return int(v) if v and v.strip().isdigit() else None
     def _float(v):
         try: return float(v.replace(",", ".")) if v and v.strip() else None
         except ValueError: return None
 
+    set_number = set_number.strip()
+    name = (name or "").strip()
+
+    # If the user only typed a set number, look the set up online
+    # (Klickypedia, then the official Playmobil shop) to fill in the rest.
+    if not name:
+        scraped = lookup_set(set_number)
+        name = scraped.get("name") or f"Set {set_number}"
+        collection = collection or scraped.get("collection")
+        year = year or (str(scraped["year"]) if scraped.get("year") else None)
+        num_pieces = num_pieces or (str(scraped["num_pieces"]) if scraped.get("num_pieces") else None)
+        num_figures = num_figures or (str(scraped["num_figures"]) if scraped.get("num_figures") else None)
+        public_price = public_price or (str(scraped["public_price"]) if scraped.get("public_price") else None)
+        official_photo_url = official_photo_url or scraped.get("official_photo_url")
+        klickypedia_url = klickypedia_url or scraped.get("klickypedia_url")
+        playmobil_url = playmobil_url or scraped.get("playmobil_url")
+
     with get_db() as db:
         cursor = db.execute(
             """INSERT INTO sets
                (set_number, name, collection, num_pieces, num_figures, price_paid,
                 purchase_date, box_condition, manual_present, missing_pieces,
-                missing_pieces_desc, notes, year)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                missing_pieces_desc, notes, year,
+                official_photo_url, klickypedia_url, playmobil_url, public_price)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                set_number.strip(), name.strip(),
+                set_number, name,
                 collection or None, _int(num_pieces), _int(num_figures), _float(price_paid),
                 purchase_date or None, box_condition,
                 1 if manual_present else 0,
                 1 if missing_pieces else 0,
                 missing_pieces_desc or None, notes or None, _int(year),
+                official_photo_url or None, klickypedia_url or None,
+                playmobil_url or None, _float(public_price),
             ),
         )
         set_id = cursor.lastrowid
         _upsert_tags(db, set_id, tags or "")
 
     return RedirectResponse(f"/sets/{set_id}", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Online lookup (Klickypedia + official Playmobil shop)
+# ---------------------------------------------------------------------------
+
+@router.get("/sets/lookup")
+def lookup_set_info(set_number: str = ""):
+    number = re.sub(r"[^0-9A-Za-z-]", "", set_number.strip())
+    if not number:
+        return JSONResponse({"found": False})
+    data = lookup_set(number)
+    return JSONResponse({"found": bool(data), **data})
 
 
 # ---------------------------------------------------------------------------
@@ -316,6 +354,10 @@ async def update_set(
     notes: Optional[str] = Form(None),
     year: Optional[str] = Form(None),
     tags: Optional[str] = Form(None),
+    official_photo_url: Optional[str] = Form(None),
+    klickypedia_url: Optional[str] = Form(None),
+    playmobil_url: Optional[str] = Form(None),
+    public_price: Optional[str] = Form(None),
 ):
     def _int(v): return int(v) if v and v.strip().isdigit() else None
     def _float(v):
@@ -331,7 +373,12 @@ async def update_set(
             """UPDATE sets SET
                set_number=?, name=?, collection=?, num_pieces=?, num_figures=?, price_paid=?,
                purchase_date=?, box_condition=?, manual_present=?, missing_pieces=?,
-               missing_pieces_desc=?, notes=?, year=?, updated_at=datetime('now')
+               missing_pieces_desc=?, notes=?, year=?,
+               official_photo_url=COALESCE(?, official_photo_url),
+               klickypedia_url=COALESCE(?, klickypedia_url),
+               playmobil_url=COALESCE(?, playmobil_url),
+               public_price=COALESCE(?, public_price),
+               updated_at=datetime('now')
                WHERE id=?""",
             (
                 set_number.strip(), name.strip(),
@@ -340,6 +387,8 @@ async def update_set(
                 1 if manual_present else 0,
                 1 if missing_pieces else 0,
                 missing_pieces_desc or None, notes or None, _int(year),
+                official_photo_url or None, klickypedia_url or None,
+                playmobil_url or None, _float(public_price),
                 set_id,
             ),
         )
@@ -364,19 +413,20 @@ async def delete_set(set_id: int):
 # ---------------------------------------------------------------------------
 
 @router.post("/sets/{set_id}/scrape", response_class=HTMLResponse)
-async def scrape_set(request: Request, set_id: int):
+def scrape_set(request: Request, set_id: int):
     with get_db() as db:
         row = db.execute("SELECT set_number FROM sets WHERE id = ?", (set_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404)
         set_number = row[0]
 
-    scraped = scrape_klickypedia(set_number)
+    scraped = lookup_set(set_number)
 
     if scraped:
         with get_db() as db:
             fields, params = [], []
-            for key in ("name", "official_photo_url", "year", "collection", "num_pieces", "num_figures", "klickypedia_url"):
+            for key in ("name", "official_photo_url", "year", "collection", "num_pieces",
+                        "num_figures", "klickypedia_url", "playmobil_url", "public_price"):
                 if scraped.get(key) is not None:
                     fields.append(f"{key} = ?")
                     params.append(scraped[key])
@@ -407,6 +457,9 @@ async def scrape_set(request: Request, set_id: int):
         "request": request,
         "set": s,
         "photos": photos,
-        "scrape_message": "Données récupérées avec succès depuis Klickypedia." if scraped else "Aucune donnée trouvée sur Klickypedia.",
+        "scrape_message": (
+            f"Données récupérées avec succès depuis {scraped['source']}."
+            if scraped else "Aucune donnée trouvée sur Klickypedia ni sur le site Playmobil."
+        ),
         "scrape_ok": bool(scraped),
     })
